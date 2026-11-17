@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  --color-brand-50: #ecfafb;
+  --color-brand-100: #cff3f6;
+  --color-brand-200: #a5e7ec;
+  --color-brand-300: #6fd3dd;
+  --color-brand-400: #35b7c7;
+  --color-brand-500: #1a9cae;
+  --color-brand-600: #127e8f;
+  --color-brand-700: #146573;
+  --color-brand-800: #15515d;
+  --color-brand-900: #15444e;
+
+  --color-accent-50: #fff6ed;
+  --color-accent-100: #ffead4;
+  --color-accent-200: #fed0a8;
+  --color-accent-300: #fdb071;
+  --color-accent-400: #fb8338;
+  --color-accent-500: #f96416;
+  --color-accent-600: #ea4a0c;
+  --color-accent-700: #c2340c;
+  --color-accent-800: #9a2b12;
+  --color-accent-900: #7c2612;
+
+  --color-ink-50: #f6f7f8;
+  --color-ink-100: #eceef1;
+  --color-ink-200: #d5dade;
+  --color-ink-300: #b1bac2;
+  --color-ink-400: #8794a1;
+  --color-ink-500: #687785;
+  --color-ink-600: #535f6c;
+  --color-ink-700: #454e58;
+  --color-ink-800: #3c434b;
+  --color-ink-900: #21262c;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-ink-50 text-ink-900 antialiased;
+}
+
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-brand-600;
+}
+
+@utility container-page {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  @apply relative overflow-hidden rounded-lg bg-ink-100;
+}
+
+.skeleton::after {
+  content: "";
+  @apply absolute inset-0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.4s infinite;
+}
