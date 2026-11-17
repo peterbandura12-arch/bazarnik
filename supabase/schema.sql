@@ -6,7 +6,39 @@
 
 create extension if not exists "pgcrypto";
 
--- ---------- Pomocné funkcie ----------
+-- ---------- Kategórie (hierarchické cez parent_id) ----------
+
+create table public.categories (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  parent_id uuid references public.categories(id) on delete cascade,
+  icon text,
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index idx_categories_parent on public.categories(parent_id, sort_order);
+create index idx_categories_slug on public.categories(slug);
+
+-- ---------- Používateľské profily ----------
+
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  username text unique,
+  full_name text,
+  avatar_url text,
+  phone text,
+  location text,
+  role text not null default 'user' check (role in ('user', 'admin')),
+  is_blocked boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ---------- Pomocné funkcie (po vytvorení tabuliek, ktoré používajú) ----------
 
 create or replace function public.is_admin()
 returns boolean
@@ -49,38 +81,6 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
-
--- ---------- Kategórie (hierarchické cez parent_id) ----------
-
-create table public.categories (
-  id uuid primary key default gen_random_uuid(),
-  slug text not null unique,
-  name text not null,
-  parent_id uuid references public.categories(id) on delete cascade,
-  icon text,
-  sort_order int not null default 0,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
-create index idx_categories_parent on public.categories(parent_id, sort_order);
-create index idx_categories_slug on public.categories(slug);
-
--- ---------- Používateľské profily ----------
-
-create table public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  username text unique,
-  full_name text,
-  avatar_url text,
-  phone text,
-  location text,
-  role text not null default 'user' check (role in ('user', 'admin')),
-  is_blocked boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
 
 create trigger trg_profiles_updated before update on public.profiles
   for each row execute function public.set_updated_at();
