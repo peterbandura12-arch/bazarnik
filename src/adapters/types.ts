@@ -1,5 +1,13 @@
 import type { ListingCondition } from "@/types/database";
 
+/** Konfigurácia zdroja z tabuľky external_sources, ktorú adaptér dostane pri synchronizácii. */
+export interface AdapterSourceConfig {
+  /** Stabilný identifikátor zdroja, zhodný s external_sources.slug */
+  slug: string;
+  /** URL partnerského feedu z external_sources.feed_url (ak je nastavená) */
+  feedUrl: string | null;
+}
+
 /** Normalizovaná externá ponuka – jednotný formát pre všetky zdroje. */
 export interface NormalizedListing {
   externalId: string;
@@ -41,7 +49,7 @@ export interface ExternalSourceAdapter {
   readonly accessDescription: string;
 
   /** Stiahne a normalizuje aktuálne ponuky zo zdroja. */
-  fetchListings(): Promise<NormalizedListing[]>;
+  fetchListings(config: AdapterSourceConfig): Promise<NormalizedListing[]>;
 }
 
 export class UnsupportedSourceError extends Error {

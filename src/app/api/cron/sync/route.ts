@@ -36,7 +36,10 @@ export async function POST(request: Request) {
     }
 
     try {
-      const items = await adapter.fetchListings();
+      const items = await adapter.fetchListings({
+        slug: source.slug,
+        feedUrl: source.feed_url,
+      });
       let imported = 0;
       let updated = 0;
 
@@ -114,4 +117,9 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true, summary });
+}
+
+/** Vercel Cron volá GET – presmerujeme na rovnakú logiku. */
+export async function GET(request: Request) {
+  return POST(request);
 }

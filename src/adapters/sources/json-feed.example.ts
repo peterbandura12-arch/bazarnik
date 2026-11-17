@@ -21,8 +21,8 @@ export const exampleJsonFeedAdapter: ExternalSourceAdapter = {
   accessDescription:
     "Vzorový adaptér pre partnerský JSON feed. Nie je pripojený na žiadny reálny portál.",
 
-  async fetchListings(): Promise<NormalizedListing[]> {
-    const feedUrl = process.env.EXAMPLE_FEED_URL;
+  async fetchListings(config: { feedUrl: string | null }): Promise<NormalizedListing[]> {
+    const feedUrl = config.feedUrl ?? process.env.EXAMPLE_FEED_URL;
     if (!feedUrl) {
       // Zdroj nie je nakonfigurovaný – vrátime prázdny zoznam, nie demo dáta.
       return [];
