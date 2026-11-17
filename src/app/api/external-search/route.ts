@@ -49,7 +49,19 @@ export async function GET(request: Request) {
   });
 
   if (!res.ok) {
-    return NextResponse.json({ error: "Vyhľadávanie zlyhalo." }, { status: 502 });
+    const upstream = await res.text();
+    let reason = `Google API vrátilo stav ${res.status}`;
+    try {
+      const parsed = JSON.parse(upstream) as { error?: { message?: string } };
+      if (parsed.error?.message) reason = parsed.error.message;
+    } catch {
+      // zachováme základný dôvod
+    }
+    console.error("external-search failed:", reason);
+    return NextResponse.json(
+      { error: "Vyhľadávanie zlyhalo.", reason },
+      { status: 502 }
+    );
   }
 
   const data = (await res.json()) as { items?: Array<Record<string, unknown>> };
