@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronDown, Heart, LayoutGrid, MessageCircle, Menu, Plus, X, Bell } from "lucide-react";
+import { ChevronDown, Heart, LayoutGrid, MessageCircle, Menu, Plus, X, Bell, Search } from "lucide-react";
 import { CATEGORY_TREE } from "@/lib/categories";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { ButtonLink } from "@/components/ui/Button";
@@ -53,6 +53,13 @@ export function MobileNav({
             </div>
 
             <div className="space-y-1 p-3">
+              <Link
+                href="/externe-vyhladavanie"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-3 rounded-lg border border-ink-100 px-3 py-3 text-sm font-medium"
+              >
+                <Search className="h-5 w-5 text-brand-600" /> Hľadať na portáloch
+              </Link>
               {CATEGORY_TREE.map((cat) => (
                 <div key={cat.slug} className="rounded-lg border border-ink-100">
                   <button
