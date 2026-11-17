@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ChevronDown, Heart, LayoutGrid, MessageCircle, Menu, Plus, X, Bell } from "lucide-react";
 import { CATEGORY_TREE } from "@/lib/categories";
@@ -28,7 +29,8 @@ export function MobileNav({
         <Menu className="h-5 w-5" />
       </button>
 
-      {open && (
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-black/40"
@@ -129,7 +131,8 @@ export function MobileNav({
               )}
             </div>
           </nav>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
