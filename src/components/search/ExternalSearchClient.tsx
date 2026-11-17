@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ExternalLink, Loader2, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 interface SearchResult {
   title: string;
@@ -11,43 +10,56 @@ interface SearchResult {
   displayLink: string;
 }
 
+const PORTALS = [
+  { name: "Bazoš SK", domain: "bazos.sk" },
+  { name: "Bazoš CZ", domain: "bazos.cz" },
+  { name: "Aukro", domain: "aukro.cz" },
+  { name: "Vinted SK", domain: "vinted.sk" },
+  { name: "Autobazar.eu", domain: "autobazar.eu" },
+  { name: "Bazar.sk", domain: "bazar.sk" },
+];
+
+function portalSearchUrl(domain: string, query: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(`${query} site:${domain}`)}`;
+}
+
 export function ExternalSearchClient({ enabled }: { enabled: boolean }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[] | null>(null);
+  const [submitted, setSubmitted] = useState("");
+  const [apiResults, setApiResults] = useState<SearchResult[] | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (!enabled) {
-    return (
-      <div className="mt-8 rounded-xl border border-ink-200 bg-ink-50 p-6 text-sm text-ink-600">
-        Vyhľadávanie na externých portáloch zatiaľ nie je aktivované. Aktivuje sa automaticky po
-        nastavení kľúčov Google Programmable Search (<code>GOOGLE_CSE_API_KEY</code>,{" "}
-        <code>GOOGLE_CSE_CX</code>).
-      </div>
-    );
-  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const value = query.trim();
     if (value.length < 2) return;
 
+    setSubmitted(value);
+    setApiResults(null);
+    setApiError(null);
+
+    if (!enabled) return;
+
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch(`/api/external-search?q=${encodeURIComponent(value)}`);
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Vyhľadávanie zlyhalo.");
-        setResults(null);
-      } else {
-        setResults(data.items ?? []);
+      if (res.ok && data.items) {
+        setApiResults(data.items);
+      } else if (enabled) {
+        setApiError(data.reason ?? data.error ?? null);
       }
     } catch {
-      setError("Vyhľadávanie zlyhalo. Skúste to znova.");
-      setResults(null);
+      if (enabled) setApiError("Vyhľadávanie zlyhalo.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function openAll() {
+    for (const portal of PORTALS) {
+      window.open(portalSearchUrl(portal.domain, submitted), "_blank", "noopener");
     }
   }
 
@@ -74,21 +86,51 @@ export function ExternalSearchClient({ enabled }: { enabled: boolean }) {
         </button>
       </form>
 
-      {error && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
+      {submitted && (
+        <div className="mt-8">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-ink-900">
+              „{submitted}“ na portáloch
+            </h2>
+            <button
+              type="button"
+              onClick={openAll}
+              className="hidden rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-brand-400 hover:text-brand-700 sm:block"
+            >
+              Otvoriť všetky
+            </button>
+          </div>
+          <p className="mt-1 text-sm text-ink-500">
+            Kliknutím otvoríte vyhľadávanie priamo na danom portáli.
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {PORTALS.map((portal) => (
+              <a
+                key={portal.domain}
+                href={portalSearchUrl(portal.domain, submitted)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl border border-ink-100 bg-white p-4 text-center transition-colors hover:border-brand-300 hover:bg-brand-50"
+              >
+                <span className="block text-sm font-medium text-ink-900">{portal.name}</span>
+                <span className="mt-0.5 block text-xs text-ink-400">{portal.domain}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {apiError && enabled && (
+        <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Rozšírené výsledky sa nepodarilo načítať ({apiError}) – použite kartu portálu vyššie.
         </p>
       )}
 
-      {results && (
-        <div className="mt-6">
-          <p className="mb-3 text-sm text-ink-500">
-            {results.length === 0
-              ? "Nič sa nenašlo. Skúste iný výraz."
-              : `Nájdených ${results.length} výsledkov – kliknutím prejdete na pôvodný portál.`}
-          </p>
-          <ul className="space-y-3">
-            {results.map((item) => (
+      {apiResults && apiResults.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-ink-900">Rozšírené výsledky</h2>
+          <ul className="mt-3 space-y-3">
+            {apiResults.map((item) => (
               <li key={item.link}>
                 <a
                   href={item.link}
@@ -96,10 +138,7 @@ export function ExternalSearchClient({ enabled }: { enabled: boolean }) {
                   rel="noopener noreferrer nofollow"
                   className="block rounded-xl border border-ink-100 bg-white p-4 transition-colors hover:border-brand-300"
                 >
-                  <span className="flex items-start justify-between gap-3">
-                    <span className="font-medium text-brand-700">{item.title}</span>
-                    <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-ink-400" />
-                  </span>
+                  <span className="block font-medium text-brand-700">{item.title}</span>
                   {item.snippet && <span className="mt-1 block text-sm text-ink-600">{item.snippet}</span>}
                   {item.displayLink && (
                     <span className="mt-1 block text-xs text-ink-400">{item.displayLink}</span>
