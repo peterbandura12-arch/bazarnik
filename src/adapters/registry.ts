@@ -1,6 +1,7 @@
 import type { ExternalSourceAdapter } from "./types";
 import { exampleJsonFeedAdapter } from "./sources/json-feed.example";
 import { universalFeedAdapter } from "./sources/universal-feed";
+import { bazosAdapter } from "./sources/bazos";
 
 /**
  * Register adaptérov externých zdrojov.
@@ -8,7 +9,7 @@ import { universalFeedAdapter } from "./sources/universal-feed";
  * do zvyšku aplikácie. Univerzálny adaptér pokrýva ľubovoľný partnerský
  * feed (JSON/XML/RSS) nastavený v external_sources.feed_url.
  */
-export const ADAPTERS: ExternalSourceAdapter[] = [universalFeedAdapter, exampleJsonFeedAdapter];
+export const ADAPTERS: ExternalSourceAdapter[] = [bazosAdapter, universalFeedAdapter, exampleJsonFeedAdapter];
 
 export function getAdapter(slug: string): ExternalSourceAdapter | undefined {
   return ADAPTERS.find((a) => a.slug === slug);

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/Badge";
 import { formatRelativeDate } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SyncNowButton } from "@/components/admin/SyncNowButton";
 
 export default async function AdminSourcesPage() {
   const supabase = await createClient();
@@ -18,6 +19,10 @@ export default async function AdminSourcesPage() {
         Externé zdroje sa pripájajú výhradne cez oficiálne API alebo partnerské feedy cez
         adaptéry v priečinku <code>src/adapters/</code>. Zdroje bez legálneho prístupu sa
         nepripájajú. Zobrazený stav je vždy skutočný stav synchronizácie.
+      </div>
+
+      <div className="mb-4">
+        <SyncNowButton />
       </div>
 
       {items.length === 0 ? (

@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { createHash } from "crypto";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getAdapter } from "@/adapters/registry";
-import { slugify } from "@/lib/utils";
+import { runSync } from "@/lib/sync";
 
 /**
- * Synchronizácia externých ponúk. Spúšťa sa plánovane (cron) s hlavičkou
+ * Synchronizácia externých ponúk. Spúšťa sa plánovane (Vercel cron) s hlavičkou
  * Authorization: Bearer <CRON_SECRET>. Bez tajného kľúča odmietne požiadavku.
  */
-export async function POST(request: Request) {
+async function handle(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authHeader = request.headers.get("authorization");
 
@@ -20,106 +17,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Databáza nie je pripojená." }, { status: 503 });
   }
 
-  const admin = createAdminClient();
-  const { data: sources } = await admin
-    .from("external_sources")
-    .select("*")
-    .eq("is_active", true);
+  return NextResponse.json(await runSync());
+}
 
-  const summary: Array<{ source: string; imported: number; updated: number; errors: string[] }> = [];
-
-  for (const source of sources ?? []) {
-    const adapter = getAdapter(source.slug);
-    if (!adapter) {
-      summary.push({ source: source.slug, imported: 0, updated: 0, errors: ["Adaptér neexistuje"] });
-      continue;
-    }
-
-    try {
-      const items = await adapter.fetchListings({
-        slug: source.slug,
-        feedUrl: source.feed_url,
-      });
-      let imported = 0;
-      let updated = 0;
-
-      for (const item of items) {
-        const contentHash = createHash("sha256")
-          .update(`${item.title}|${item.price}|${item.url}`)
-          .digest("hex");
-
-        const { data: existing } = await admin
-          .from("external_listings")
-          .select("id, content_hash")
-          .eq("source_id", source.id)
-          .eq("external_id", item.externalId)
-          .maybeSingle();
-
-        const slug = `${slugify(item.title) || "ponuka"}-${item.externalId}`;
-
-        if (existing) {
-          if (existing.content_hash !== contentHash) {
-            await admin
-              .from("external_listings")
-              .update({
-                title: item.title,
-                description: item.description,
-                price: item.price,
-                condition: item.condition,
-                brand: item.brand,
-                model: item.model,
-                location: item.location,
-                image_url: item.imageUrl,
-                content_hash: contentHash,
-                fetched_at: new Date().toISOString(),
-                is_available: true,
-              })
-              .eq("id", existing.id);
-            updated++;
-          }
-        } else {
-          await admin.from("external_listings").insert({
-            source_id: source.id,
-            external_id: item.externalId,
-            slug,
-            url: item.url,
-            title: item.title,
-            description: item.description,
-            price: item.price,
-            currency: item.currency,
-            condition: item.condition,
-            brand: item.brand,
-            model: item.model,
-            location: item.location,
-            category_id: null,
-            image_url: item.imageUrl,
-            published_at: item.publishedAt,
-            content_hash: contentHash,
-          });
-          imported++;
-        }
-      }
-
-      await admin
-        .from("external_sources")
-        .update({ last_synced_at: new Date().toISOString() })
-        .eq("id", source.id);
-
-      summary.push({ source: source.slug, imported, updated, errors: [] });
-    } catch (error) {
-      summary.push({
-        source: source.slug,
-        imported: 0,
-        updated: 0,
-        errors: [error instanceof Error ? error.message : "Neznáma chyba"],
-      });
-    }
-  }
-
-  return NextResponse.json({ ok: true, summary });
+export async function POST(request: Request) {
+  return handle(request);
 }
 
 /** Vercel Cron volá GET – presmerujeme na rovnakú logiku. */
 export async function GET(request: Request) {
-  return POST(request);
+  return handle(request);
 }
