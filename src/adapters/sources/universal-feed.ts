@@ -117,20 +117,31 @@ function itemBlocksFromXml(xml: string): string[] {
 function mapXmlBlock(block: string): NormalizedListing | null {
   const externalId =
     extractTag(block, "guid") ??
+    extractTag(block, "item_id") ??
     extractTag(block, "id") ??
+    extractTag(block, "code") ??
     extractAttr(block, "item", "id") ??
-    extractAttr(block, "entry", "id");
+    extractAttr(block, "entry", "id") ??
+    extractAttr(block, "shopitem", "id");
   const url =
     extractAttr(block, "link", "href") ??
     extractTag(block, "link") ??
-    extractTag(block, "url");
-  const title = extractTag(block, "title");
+    extractTag(block, "url") ??
+    extractTag(block, "product_url");
+  const title =
+    extractTag(block, "title") ??
+    extractTag(block, "productname") ??
+    extractTag(block, "product") ??
+    extractTag(block, "name");
   if (!externalId || !url || !title) return null;
 
   const imageUrl =
+    extractTag(block, "imgurl") ??
+    extractTag(block, "imgurl_alternative") ??
     extractAttr(block, "enclosure", "url") ??
     extractTag(block, "image") ??
     extractTag(block, "image_url") ??
+    extractTag(block, "img") ??
     extractAttr(block, "media:content", "url") ??
     extractAttr(block, "media:thumbnail", "url");
 
@@ -140,15 +151,25 @@ function mapXmlBlock(block: string): NormalizedListing | null {
     title,
     description:
       extractTag(block, "description") ??
+      extractTag(block, "short_description") ??
       extractTag(block, "summary") ??
-      extractTag(block, "content"),
-    price: parsePrice(extractTag(block, "price") ?? extractAttr(block, "price", "value")),
-    currency: extractTag(block, "currency") ?? "EUR",
+      extractTag(block, "content") ??
+      extractTag(block, "text"),
+    price: parsePrice(
+      extractTag(block, "price") ??
+        extractTag(block, "price_vat") ??
+        extractTag(block, "price_amount") ??
+        extractAttr(block, "price", "value")
+    ),
+    currency: extractTag(block, "currency") ?? extractTag(block, "currencyid") ?? "EUR",
     condition: mapCondition(extractTag(block, "condition") ?? extractTag(block, "stav")),
-    brand: extractTag(block, "brand") ?? extractTag(block, "manufacturer"),
-    model: extractTag(block, "model"),
+    brand:
+      extractTag(block, "brand") ??
+      extractTag(block, "manufacturer") ??
+      extractTag(block, "vyrobca"),
+    model: extractTag(block, "model") ?? extractTag(block, "typ"),
     location: extractTag(block, "location") ?? extractTag(block, "city"),
-    categorySlug: extractTag(block, "category"),
+    categorySlug: extractTag(block, "category") ?? extractTag(block, "categorytext"),
     imageUrl,
     publishedAt:
       extractTag(block, "pubDate") ??
