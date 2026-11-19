@@ -79,7 +79,6 @@ export function Footer() {
             <li><Link href="/pridat-inzerat" className="hover:text-brand-700">Pridať inzerát</Link></li>
             <li><Link href="/prihlasenie" className="hover:text-brand-700">Prihlásenie</Link></li>
             <li><Link href="/registracia" className="hover:text-brand-700">Registrácia</Link></li>
-            <li><Link href="/inzeraty?source=external" className="hover:text-brand-700">Externé ponuky</Link></li>
           </ul>
         </nav>
       </div>

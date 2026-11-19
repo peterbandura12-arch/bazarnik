@@ -22,6 +22,11 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
     .select("*")
     .eq("is_active", true);
 
+  const { data: categories } = await admin
+    .from("categories")
+    .select("id, slug, parent_id");
+  const categoryIds = new Map((categories ?? []).map((c) => [c.slug, c.id]));
+
   const summary: SyncSourceSummary[] = [];
 
   for (const source of sources ?? []) {
@@ -44,9 +49,13 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           .update(`${item.title}|${item.price}|${item.url}`)
           .digest("hex");
 
+        const categoryId = item.categorySlug
+          ? categoryIds.get(item.categorySlug) ?? null
+          : null;
+
         const { data: existing } = await admin
           .from("external_listings")
-          .select("id, content_hash")
+          .select("id, content_hash, category_id")
           .eq("source_id", source.id)
           .eq("external_id", item.externalId)
           .maybeSingle();
@@ -54,7 +63,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         const slug = `${slugify(item.title) || "ponuka"}-${item.externalId}`;
 
         if (existing) {
-          if (existing.content_hash !== contentHash) {
+          if (existing.content_hash !== contentHash || existing.category_id !== categoryId) {
             await admin
               .from("external_listings")
               .update({
@@ -65,6 +74,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
                 brand: item.brand,
                 model: item.model,
                 location: item.location,
+                category_id: categoryId,
                 image_url: item.imageUrl,
                 content_hash: contentHash,
                 fetched_at: new Date().toISOString(),

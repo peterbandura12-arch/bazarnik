@@ -83,9 +83,6 @@ export async function Header() {
           <Link href="/inzeraty" className="rounded-lg px-3 py-2 text-sm text-ink-700 hover:bg-ink-100">
             Všetky inzeráty
           </Link>
-          <Link href="/inzeraty?source=external" className="rounded-lg px-3 py-2 text-sm text-ink-700 hover:bg-ink-100">
-            Externé ponuky
-          </Link>
           <Link href="/externe-vyhladavanie" className="rounded-lg px-3 py-2 text-sm text-ink-700 hover:bg-ink-100">
             Hľadať na portáloch
           </Link>

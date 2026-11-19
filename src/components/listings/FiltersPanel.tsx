@@ -87,17 +87,6 @@ export function FiltersPanel({ compact = false }: { compact?: boolean }) {
         </Select>
       </div>
 
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-          Zdroj inzerátu
-        </label>
-        <Select name="source" defaultValue={params.get("source") ?? ""}>
-          <option value="">Všetky zdroje</option>
-          <option value="own">Bazárnik</option>
-          <option value="external">Externé portály</option>
-        </Select>
-      </div>
-
       <div className="flex gap-2 pt-1">
         <Button type="submit" className="flex-1">
           Použiť filtre

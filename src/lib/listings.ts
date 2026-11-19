@@ -1,5 +1,20 @@
 import type { UnifiedListing } from "@/types/database";
 import { isSupabaseConfigured, createClient } from "@/lib/supabase/server";
+
+const UUID_REGEXP = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+
+/** Rozlíši slug kategórie na zoznam ID (rodič zahrnie aj deti). Neznámy slug vráti prázdny zoznam. */
+async function resolveCategoryIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  slug: string
+): Promise<string[]> {
+  const { data } = await supabase.from("categories").select("id, slug, parent_id");
+  const rows = data ?? [];
+  const root = rows.find((c) => c.slug === slug);
+  if (!root) return [EMPTY_UUID];
+  return [root.id, ...rows.filter((c) => c.parent_id === root.id).map((c) => c.id)];
+}
 import { DEMO_LISTINGS } from "@/lib/demo/data";
 import type { SortOption } from "@/lib/sort";
 
@@ -107,7 +122,14 @@ export async function searchListings(f: ListingFilters): Promise<SearchResult> {
   let query = supabase.from("v_listings_search").select("*", { count: "exact" });
 
   if (f.q) query = query.ilike("title", `%${f.q}%`);
-  if (f.category) query = query.eq("category_id", f.category);
+  if (f.category) {
+    if (UUID_REGEXP.test(f.category)) {
+      query = query.eq("category_id", f.category);
+    } else {
+      const ids = await resolveCategoryIds(supabase, f.category);
+      query = query.in("category_id", ids);
+    }
+  }
   if (f.minPrice) query = query.gte("price", Number(f.minPrice));
   if (f.maxPrice) query = query.lte("price", Number(f.maxPrice));
   if (f.location) query = query.ilike("location", `%${f.location}%`);
@@ -176,6 +198,3 @@ export async function getLatestListings(perPage = 8): Promise<SearchResult> {
   return searchListings({ sort: "najnovsie", perPage });
 }
 
-export async function getExternalListings(perPage = 4): Promise<SearchResult> {
-  return searchListings({ source: "external", sort: "najnovsie", perPage });
-}

@@ -56,6 +56,11 @@ function parsePriceText(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function mapBazosCategory(url: string): string | null {
+  const sub = url.match(/^https:\/\/([^.]+)\.bazos\.sk\//)?.[1] ?? null;
+  return sub ? CATEGORY_MAP[sub] ?? null : null;
+}
+
 /** Názov inzerátu v RSS má formát „Názov: cena“ – cena môže byť aj textom. */
 function splitTitle(rawTitle: string): { title: string; price: number | null } {
   const title = rawTitle.replace(/\s+/g, " ").trim();
@@ -69,6 +74,32 @@ function splitTitle(rawTitle: string): { title: string; price: number | null } {
   }
   return { title: name || title, price };
 }
+
+// Mapovanie oficiálnych Bazoš kategórií (subdomén) na kategórie Bazárnika.
+const CATEGORY_MAP: Record<string, string> = {
+  mobil: "mobilne-telefony",
+  elektro: "elektronika",
+  foto: "fotoaparaty",
+  pc: "pocitace-a-gaming",
+  auto: "osobne-automobily",
+  motocykle: "motocykle",
+  autodiel: "autodiely",
+  stroje: "naradie",
+  nabytok: "nabytok",
+  dom: "dom-a-zahrada",
+  deti: "deti-a-hracky",
+  oblecenie: "oblecenie-a-moda",
+  sport: "sport-a-outdoor",
+  hudba: "hobby-a-volny-cas",
+  knihy: "knihy",
+  praca: "pracovne-ponuky",
+  sluzby: "ostatne-sluzby",
+  zvierata: "zvierata",
+  reality: "reality",
+  vstupenky: "vstupenky",
+  ostatne: "ostatne-inzeraty",
+  www: "ostatne-inzeraty",
+};
 
 export const bazosAdapter: ExternalSourceAdapter = {
   slug: "bazos",
@@ -142,7 +173,7 @@ export const bazosAdapter: ExternalSourceAdapter = {
         brand: null,
         model: null,
         location: null,
-        categorySlug: url.match(/^https:\/\/([^.]+)\.bazos\.sk\//)?.[1] ?? null,
+        categorySlug: mapBazosCategory(url),
         imageUrl,
         publishedAt: tag("pubDate") ?? new Date().toISOString(),
       });

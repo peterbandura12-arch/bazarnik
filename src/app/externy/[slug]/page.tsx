@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import { getListingBySlug, getSimilarListings } from "@/lib/listings";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { CONDITION_LABELS, formatDate, formatPrice } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { getCategoryPath } from "@/lib/categories";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 
 interface PageProps {
@@ -34,12 +36,27 @@ export default async function ExternalListingPage({ params }: PageProps) {
   const profile = isSupabaseConfigured() ? await getCurrentProfile() : null;
   const similar = await getSimilarListings(listing);
 
+  let categoryPath: ReturnType<typeof getCategoryPath> = [];
+  if (listing.category_id) {
+    const supabase = await createClient();
+    const { data: catRow } = await supabase
+      .from("categories")
+      .select("slug")
+      .eq("id", listing.category_id)
+      .maybeSingle();
+    if (catRow) categoryPath = getCategoryPath(catRow.slug);
+  }
+
   return (
     <div className="container-page py-6">
       <nav aria-label="Navigácia" className="mb-4 text-sm text-ink-500">
         <Link href="/" className="hover:text-brand-700">Domov</Link>
-        <span className="mx-1.5">/</span>
-        <Link href="/inzeraty?source=external" className="hover:text-brand-700">Externé ponuky</Link>
+        {categoryPath.map((c) => (
+          <span key={c.slug}>
+            <span className="mx-1.5">/</span>
+            <Link href={`/inzeraty?category=${c.slug}`} className="hover:text-brand-700">{c.name}</Link>
+          </span>
+        ))}
         <span className="mx-1.5">/</span>
         <span className="font-medium text-ink-800">{listing.title}</span>
       </nav>

@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Megaphone, Plus, ShieldCheck, Sparkles, Tag, Zap } from "lucide-react";
+import { ArrowRight, Plus, ShieldCheck, Sparkles, Tag, Zap } from "lucide-react";
 import { SearchBar } from "@/components/layout/SearchBar";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { ButtonLink } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CATEGORY_TREE } from "@/lib/categories";
-import { getLatestListings, getExternalListings, searchListings } from "@/lib/listings";
+import { getLatestListings, searchListings } from "@/lib/listings";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 
 function SectionHeader({
@@ -43,9 +43,8 @@ export default async function HomePage() {
   const profile = isSupabaseConfigured() ? await getCurrentProfile() : null;
   const isLoggedIn = Boolean(profile);
 
-  const [latest, external, deals] = await Promise.all([
+  const [latest, deals] = await Promise.all([
     getLatestListings(8),
-    getExternalListings(4),
     searchListings({ sort: "cena_vzostupne", perPage: 4 }),
   ]);
 
@@ -153,31 +152,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      {/* Externé inzeráty */}
-      <section className="container-page pt-12">
-        <SectionHeader
-          title="Externé ponuky"
-          subtitle="Inzeráty z iných inzertných portálov – vždy s odkazom na pôvodnú ponuku"
-          href="/inzeraty?source=external"
-        />
-        {external.items.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {external.items.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} isLoggedIn={isLoggedIn} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-ink-200 bg-white p-8 text-center">
-            <Megaphone className="mx-auto mb-3 h-8 w-8 text-ink-300" />
-            <p className="text-sm font-medium text-ink-700">Externé zdroje ešte nie sú pripojené</p>
-            <p className="mx-auto mt-1 max-w-lg text-sm text-ink-500">
-              Architektúra adaptérov je pripravená. Po pripojení oficiálneho API alebo
-              partner feedu sa tu zobrazia externé ponuky, vždy jasne označené zdrojom.
-            </p>
-          </div>
-        )}
-      </section>
 
       {/* Výzva na pridanie inzerátu */}
       <section className="container-page pt-12">
