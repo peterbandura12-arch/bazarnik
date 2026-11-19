@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bot, Loader2, Send, Sparkles, X } from "lucide-react";
 import { buildListingUrl, formatPrice } from "@/lib/utils";
+import { useChat } from "@/components/ai/ChatProvider";
 import type { UnifiedListing } from "@/types/database";
 
 interface ChatMessage {
@@ -19,7 +20,7 @@ const GREETING: ChatMessage = {
 };
 
 export function ChatWidget({ enabled }: { enabled: boolean }) {
-  const [open, setOpen] = useState(false);
+  const { chatOpen: open, setChatOpen: setOpen } = useChat();
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,17 +29,6 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
-
-  useEffect(() => {
-    const win = window as unknown as { __bazarnikOpenChat?: () => void };
-    const openChat = () => setOpen(true);
-    win.__bazarnikOpenChat = openChat;
-    window.addEventListener("bazarnik:open-chat", openChat);
-    return () => {
-      window.removeEventListener("bazarnik:open-chat", openChat);
-      delete win.__bazarnikOpenChat;
-    };
-  }, []);
 
   if (!enabled) return null;
 
@@ -198,7 +188,7 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
 
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         aria-label="Otvoriť AI asistenta"
         className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-xl transition-transform hover:scale-105"
       >

@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import { ChatWidget } from "@/components/ai/ChatWidget";
+import { ChatProvider } from "@/components/ai/ChatProvider";
 import { isAiEnabled } from "@/lib/ai";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import "./globals.css";
@@ -34,11 +35,13 @@ export default function RootLayout({
   return (
     <html lang="sk">
       <body className="flex min-h-screen flex-col">
-        <DemoBanner visible={!isSupabaseConfigured()} />
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        <ChatWidget enabled={isAiEnabled()} />
+        <ChatProvider>
+          <DemoBanner visible={!isSupabaseConfigured()} />
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+          <ChatWidget enabled={isAiEnabled()} />
+        </ChatProvider>
       </body>
     </html>
   );

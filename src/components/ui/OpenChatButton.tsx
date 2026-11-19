@@ -1,24 +1,16 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import { useChat } from "@/components/ai/ChatProvider";
 
-/** Tlacitko, ktore otvori plavajuci AI chat (ChatWidget pocuva udalost "bazarnik:open-chat"). */
+/** Tlacitko, ktore priamo otvori plavajuci AI chat (zdielany stav cez ChatProvider). */
 export function OpenChatButton({ className }: { className?: string }) {
-  function openChat() {
-    const direct = (
-      window as unknown as { __bazarnikOpenChat?: () => void }
-    ).__bazarnikOpenChat;
-    if (direct) {
-      direct();
-      return;
-    }
-    window.dispatchEvent(new Event("bazarnik:open-chat"));
-  }
+  const { setChatOpen } = useChat();
 
   return (
     <button
       type="button"
-      onClick={openChat}
+      onClick={() => setChatOpen(true)}
       className={
         className ??
         "inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-brand-800 shadow-lg transition-transform hover:scale-105"
