@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Reveal } from "@/components/ui/Reveal";
 import { OpenChatButton } from "@/components/ui/OpenChatButton";
 import { CATEGORY_EMOJI, CATEGORY_TREE } from "@/lib/categories";
-import { getLatestListings, getCategoryCounts, getPopularListings } from "@/lib/listings";
+import { getCategoryCounts, getPopularListings } from "@/lib/listings";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 
 const POPULAR_SEARCHES = [
@@ -72,8 +72,7 @@ export default async function HomePage() {
   const profile = isSupabaseConfigured() ? await getCurrentProfile() : null;
   const isLoggedIn = Boolean(profile);
 
-  const [latest, popular, categoryCounts] = await Promise.all([
-    getLatestListings(8),
+  const [popular, categoryCounts] = await Promise.all([
     getPopularListings(8),
     getCategoryCounts(),
   ]);
@@ -188,28 +187,6 @@ export default async function HomePage() {
         </Reveal>
       </section>
 
-      {/* Čerstvo pridané */}
-      <section className="container-page pt-12">
-<Reveal>
-        <SectionHeader
-          title="Čerstvo pridané"
-          subtitle="Najnovšie inzeráty zo všetkých zdrojov"
-          href="/inzeraty?sort=najnovsie"
-        />
-        {latest.items.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {latest.items.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} isLoggedIn={isLoggedIn} />
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-xl border border-dashed border-ink-200 bg-white p-8 text-center text-sm text-ink-500">
-            Zatiaľ nie sú žiadne inzeráty. Buďte prvý, kto pridá svoju ponuku.
-          </p>
-        )}
-        </Reveal>
-      </section>
-
       {/* AI asistent */}
       <section className="container-page pb-14 pt-12">
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-violet-900 px-6 py-12 text-center sm:px-12">
@@ -238,11 +215,7 @@ export default async function HomePage() {
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <OpenChatButton />
-              <ButtonLink
-                href="/inzeraty"
-                variant="outline"
-                className="border-white/30 bg-transparent text-white hover:bg-white/10"
-              >
+              <ButtonLink href="/inzeraty" variant="glass">
                 Alebo si prezeraj ručne
               </ButtonLink>
             </div>

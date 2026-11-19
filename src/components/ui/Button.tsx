@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "accent" | "outline" | "ghost" | "danger";
+type Variant = "primary" | "accent" | "outline" | "ghost" | "danger" | "glass";
 type Size = "sm" | "md" | "lg";
 
 const variantClasses: Record<Variant, string> = {
@@ -11,6 +11,7 @@ const variantClasses: Record<Variant, string> = {
   outline: "border border-ink-200 bg-white text-ink-800 hover:border-brand-400 hover:text-brand-700",
   ghost: "text-ink-700 hover:bg-ink-100",
   danger: "bg-red-600 text-white hover:bg-red-700",
+  glass: "border border-white/30 bg-transparent text-white hover:bg-white/10",
 };
 
 const sizeClasses: Record<Size, string> = {
