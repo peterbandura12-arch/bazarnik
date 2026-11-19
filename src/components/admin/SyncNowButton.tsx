@@ -8,6 +8,7 @@ type SyncSourceSummary = {
   source: string;
   imported: number;
   updated: number;
+  archived: number;
   errors: string[];
 };
 
@@ -28,7 +29,7 @@ export function SyncNowButton() {
         const summary = (data.summary ?? []) as SyncSourceSummary[];
         const lines = summary.map(
           (s) =>
-            `${s.source}: +${s.imported} nových, ${s.updated} aktualizovaných${
+            `${s.source}: +${s.imported} nových, ${s.updated} aktualizovaných, ${s.archived} vyradených${
               s.errors.length > 0 ? ` (${s.errors.length} chýb)` : ""
             }`,
         );

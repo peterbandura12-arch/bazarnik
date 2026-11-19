@@ -8,6 +8,23 @@ import { CONDITION_LABELS } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 
+const LOCATION_SUGGESTIONS = [
+  "Bratislava",
+  "Bratislava a okolie",
+  "Trnava a okolie",
+  "Trenčín a okolie",
+  "Nitra a okolie",
+  "Žilina a okolie",
+  "Banská Bystrica a okolie",
+  "Zvolen a okolie",
+  "Prievidza a okolie",
+  "Poprad a okolie",
+  "Prešov a okolie",
+  "Košice",
+  "Košice a okolie",
+  "Michalovce a okolie",
+];
+
 export function FiltersPanel({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -70,7 +87,17 @@ export function FiltersPanel({ compact = false }: { compact?: boolean }) {
         <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
           Lokalita
         </label>
-        <Input name="location" placeholder="Mesto alebo kraj" defaultValue={params.get("location") ?? ""} />
+        <Input
+          name="location"
+          placeholder="Mesto alebo kraj"
+          defaultValue={params.get("location") ?? ""}
+          list="lokalita-moznosti"
+        />
+        <datalist id="lokalita-moznosti">
+          {LOCATION_SUGGESTIONS.map((city) => (
+            <option key={city} value={city} />
+          ))}
+        </datalist>
       </div>
 
       <div>

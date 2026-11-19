@@ -143,8 +143,8 @@ function detectLocation(text: string | null): string | null {
   return null;
 }
 
-function mapBazosCategory(url: string): string | null {
-  const sub = url.match(/^https:\/\/([^.]+)\.bazos\.sk\//)?.[1] ?? null;
+function mapBazosCategory(url: string, domain: string): string | null {
+  const sub = url.match(new RegExp(`^https:\\/\\/([^.]+)\\.bazos\\.${domain}\\/`))?.[1] ?? null;
   return sub ? CATEGORY_MAP[sub] ?? null : null;
 }
 
@@ -189,7 +189,7 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 // Oficiálne regionálne RSS kanály (hlokalita = PSČ centra, humkreis = okolie v km).
-const REGION_CENTERS: Array<{ psc: string; radius: string; label: string }> = [
+const SK_REGION_CENTERS: Array<{ psc: string; radius: string; label: string }> = [
   { psc: "81101", radius: "75", label: "Bratislava a okolie" },
   { psc: "91701", radius: "60", label: "Trnava a okolie" },
   { psc: "91101", radius: "50", label: "Trenčín a okolie" },
@@ -204,12 +204,27 @@ const REGION_CENTERS: Array<{ psc: string; radius: string; label: string }> = [
   { psc: "07101", radius: "50", label: "Michalovce a okolie" },
 ];
 
-export const bazosAdapter: ExternalSourceAdapter = {
-  slug: "bazos",
-  name: "Bazoš.sk (oficiálny RSS)",
-  websiteUrl: "https://www.bazos.sk",
-  accessDescription:
-    "Číta výhradne oficiálne verejné RSS kanály Bazoša (odkaz RSS v pätičke portálu), vrátane regionálnych kanálov. Bez scrapingu. Feed URL sa nastavuje v external_sources.feed_url.",
+const CZ_REGION_CENTERS: Array<{ psc: string; radius: string; label: string }> = [
+  { psc: "11000", radius: "60", label: "Praha a okolie" },
+  { psc: "60200", radius: "60", label: "Brno a okolie" },
+  { psc: "70200", radius: "60", label: "Ostrava a okolie" },
+  { psc: "30100", radius: "50", label: "Plzeň a okolie" },
+  { psc: "77100", radius: "50", label: "Olomouc a okolie" },
+  { psc: "50001", radius: "50", label: "Hradec Králové a okolie" },
+  { psc: "46001", radius: "50", label: "Liberec a okolie" },
+  { psc: "37001", radius: "50", label: "České Budějovice a okolie" },
+  { psc: "40001", radius: "50", label: "Ústí nad Labem a okolie" },
+  { psc: "76001", radius: "50", label: "Zlín a okolie" },
+];
+
+function createBazosAdapter(slug: string, domain: "sk" | "cz"): ExternalSourceAdapter {
+  const regionCenters = domain === "sk" ? SK_REGION_CENTERS : CZ_REGION_CENTERS;
+
+  return {
+  slug,
+  name: domain === "sk" ? "Bazoš.sk (oficiálny RSS)" : "Bazoš.cz (oficiálny RSS)",
+  websiteUrl: `https://www.bazos.${domain}`,
+  accessDescription: `Číta výhradne oficiálne verejné RSS kanály Bazoša (odkaz RSS v pätičke portálu), vrátane regionálnych kanálov. Bez scrapingu. Feed URL sa nastavuje v external_sources.feed_url.`,
 
   async fetchListings(config: AdapterSourceConfig): Promise<NormalizedListing[]> {
     const feedUrl = config.feedUrl;
@@ -217,6 +232,7 @@ export const bazosAdapter: ExternalSourceAdapter = {
       return [];
     }
 
+    const domain = /bazos\.cz/.test(feedUrl) ? "cz" : "sk";
     const headers = { Accept: "application/rss+xml, application/xml, text/xml, */*" };
     const res = await fetch(feedUrl, { headers, cache: "no-store" });
     if (!res.ok) {
@@ -225,12 +241,12 @@ export const bazosAdapter: ExternalSourceAdapter = {
     const baseXml = await res.text();
 
     const byId = new Map<string, NormalizedListing>();
-    for (const listing of parseFeed(baseXml)) {
+    for (const listing of parseFeed(baseXml, null, domain)) {
       byId.set(listing.externalId, listing);
     }
 
-    if (/rss\.php/.test(feedUrl) && /bazos\.sk/.test(feedUrl)) {
-      for (const center of REGION_CENTERS) {
+    if (/rss\.php/.test(feedUrl) && /bazos\.(sk|cz)/.test(feedUrl)) {
+      for (const center of regionCenters) {
         try {
           const url = new URL(feedUrl);
           url.searchParams.set("hlokalita", center.psc);
@@ -238,7 +254,7 @@ export const bazosAdapter: ExternalSourceAdapter = {
           const regionRes = await fetch(url, { headers, cache: "no-store" });
           if (!regionRes.ok) continue;
           const regionXml = await regionRes.text();
-          for (const listing of parseFeed(regionXml, center.label)) {
+          for (const listing of parseFeed(regionXml, center.label, domain)) {
             const current = byId.get(listing.externalId);
             if (!current) {
               byId.set(listing.externalId, listing);
@@ -256,15 +272,19 @@ export const bazosAdapter: ExternalSourceAdapter = {
   },
 
   getCategoryFromUrl(url: string): string | null {
-    return mapBazosCategory(url);
+    return mapBazosCategory(url, domain);
   },
 
   getLocationFromText(text: string): string | null {
     return detectLocation(text);
   },
-};
+  };
+}
 
-function parseFeed(xml: string, fallbackLocation: string | null = null): NormalizedListing[] {
+export const bazosAdapter = createBazosAdapter("bazos", "sk");
+export const bazosCzAdapter = createBazosAdapter("bazos-cz", "cz");
+
+function parseFeed(xml: string, fallbackLocation: string | null = null, domain: string = "sk"): NormalizedListing[] {
   const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
   const listings: NormalizedListing[] = [];
 
@@ -315,7 +335,7 @@ function parseFeed(xml: string, fallbackLocation: string | null = null): Normali
       brand: null,
       model: null,
       location: detectLocation(`${bodyText}\n${title}`) ?? fallbackLocation,
-      categorySlug: mapBazosCategory(url),
+      categorySlug: mapBazosCategory(url, domain),
       imageUrl,
       publishedAt: tag("pubDate") ?? new Date().toISOString(),
     });

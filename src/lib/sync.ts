@@ -12,6 +12,7 @@ export interface SyncSourceSummary {
   source: string;
   imported: number;
   updated: number;
+  archived: number;
   errors: string[];
 }
 
@@ -32,7 +33,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
   for (const source of sources ?? []) {
     const adapter = getAdapter(source.slug);
     if (!adapter) {
-      summary.push({ source: source.slug, imported: 0, updated: 0, errors: ["Adaptér neexistuje"] });
+      summary.push({ source: source.slug, imported: 0, updated: 0, archived: 0, errors: ["Adaptér neexistuje"] });
       continue;
     }
 
@@ -55,6 +56,16 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         for (const row of batchRows ?? []) {
           existingMap.set(row.external_id, { id: row.id, content_hash: row.content_hash, category_id: row.category_id, location: row.location });
         }
+      }
+
+      // Dotyk všetkých práve videných inzerátov – jeden dávkový dopyt (posunie fetched_at).
+      const nowIso = new Date().toISOString();
+      for (let i = 0; i < items.length; i += 200) {
+        await admin
+          .from("external_listings")
+          .update({ fetched_at: nowIso })
+          .eq("source_id", source.id)
+          .in("external_id", items.slice(i, i + 200).map((item) => item.externalId));
       }
 
       for (const item of items) {
@@ -118,6 +129,23 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         }
       }
 
+      // Vyradenie inzerátov, ktoré sa dlhšie neobjavujú v feedoch (sú z portálu predané/vymazané).
+      const availabilityCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { count: stale } = await admin
+        .from("external_listings")
+        .select("id", { count: "exact", head: true })
+        .eq("source_id", source.id)
+        .eq("is_available", true)
+        .lt("fetched_at", availabilityCutoff);
+      if (stale && stale > 0) {
+        await admin
+          .from("external_listings")
+          .update({ is_available: false })
+          .eq("source_id", source.id)
+          .eq("is_available", true)
+          .lt("fetched_at", availabilityCutoff);
+      }
+
       // Doplnenie kategórií inzerátom importovaným pred zavedením mapovania.
       const { data: uncategorized } = await admin
         .from("external_listings")
@@ -158,12 +186,13 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         .update({ last_synced_at: new Date().toISOString() })
         .eq("id", source.id);
 
-      summary.push({ source: source.slug, imported, updated, errors: [] });
+      summary.push({ source: source.slug, imported, updated, archived: stale ?? 0, errors: [] });
     } catch (error) {
       summary.push({
         source: source.slug,
         imported: 0,
         updated: 0,
+        archived: 0,
         errors: [error instanceof Error ? error.message : "Neznáma chyba"],
       });
     }
