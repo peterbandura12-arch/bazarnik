@@ -216,3 +216,35 @@ export function getCategoryPath(slug: string): CategoryNode[] {
   }
   return [];
 }
+
+/** Emoji pre hlavné kategórie – používa sa v chipoch a dlaždicách na homepage. */
+export const CATEGORY_EMOJI: Record<string, string> = {
+  elektronika: "📺",
+  "pocitace-a-gaming": "🎮",
+  "auto-moto": "🚗",
+  "dom-a-zahrada": "🏠",
+  "sport-a-outdoor": "🚲",
+  "oblecenie-a-moda": "👟",
+  "deti-a-hracky": "🧸",
+  "hobby-a-volny-cas": "🎸",
+  "praca-a-sluzby": "🧰",
+  zvierata: "🐾",
+  reality: "🔑",
+  ostatne: "📦",
+};
+
+/** Zdroje, ktoré Bazárnik prehľadáva (odkazy do pätičky). */
+export const EXTERNAL_SOURCES: Array<{ name: string; url: string }> = [
+  { name: "Bazoš.sk", url: "https://www.bazos.sk" },
+  { name: "Bazar.sk", url: "https://www.bazar.sk" },
+  { name: "Modrý koník", url: "https://www.modrykonik.sk" },
+  { name: "Vinted.sk", url: "https://www.vinted.sk" },
+  { name: "Facebook Marketplace", url: "https://www.facebook.com/marketplace/sk/" },
+  { name: "Autobazar.eu", url: "https://www.autobazar.eu" },
+  { name: "Autobazar.sk", url: "https://www.autobazar.sk" },
+  { name: "Autovia.sk", url: "https://www.autovia.sk" },
+  { name: "Nehnutelnosti.sk", url: "https://www.nehnutelnosti.sk" },
+  { name: "Inzercia.sk", url: "https://www.inzercia.sk" },
+  { name: "Bazox.sk", url: "https://bazox.sk" },
+  { name: "Predamkupim.sk", url: "https://www.predamkupim.sk" },
+];

@@ -198,3 +198,27 @@ export async function getLatestListings(perPage = 8): Promise<SearchResult> {
   return searchListings({ sort: "najnovsie", perPage });
 }
 
+
+/** Počet aktívnych inzerátov (vlastné aj externé) na rodičovskú kategóriu. */
+export async function getCategoryCounts(): Promise<Record<string, number>> {
+  if (!isSupabaseConfigured()) return {};
+  try {
+    const supabase = await createClient();
+    const { data: categories } = await supabase.from("categories").select("id, slug, parent_id");
+    const rows = categories ?? [];
+    const roots = rows.filter((c) => !c.parent_id);
+    const entries = await Promise.all(
+      roots.map(async (root) => {
+        const ids = [root.id, ...rows.filter((c) => c.parent_id === root.id).map((c) => c.id)];
+        const { count } = await supabase
+          .from("v_listings_search")
+          .select("id", { count: "exact", head: true })
+          .in("category_id", ids);
+        return [root.slug, count ?? 0] as const;
+      }),
+    );
+    return Object.fromEntries(entries);
+  } catch {
+    return {};
+  }
+}

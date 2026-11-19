@@ -7,6 +7,7 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { ButtonLink } from "@/components/ui/Button";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
+import { CATEGORY_EMOJI, CATEGORY_TREE } from "@/lib/categories";
 import type { Profile } from "@/types/database";
 
 export async function Header() {
@@ -71,6 +72,21 @@ export async function Header() {
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Pridať inzerát</span>
             </ButtonLink>
+          </div>
+        </div>
+
+        <div className="border-t border-ink-100">
+          <div className="flex gap-1.5 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {CATEGORY_TREE.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/inzeraty?category=${cat.slug}`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-brand-400 hover:text-brand-700"
+              >
+                <span aria-hidden>{CATEGORY_EMOJI[cat.slug] ?? "📦"}</span>
+                {cat.name}
+              </Link>
+            ))}
           </div>
         </div>
 

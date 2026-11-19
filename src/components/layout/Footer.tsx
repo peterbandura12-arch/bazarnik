@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Store } from "lucide-react";
-import { CATEGORY_TREE } from "@/lib/categories";
+import { CATEGORY_TREE, EXTERNAL_SOURCES } from "@/lib/categories";
 
 const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL;
 
@@ -9,7 +9,7 @@ export function Footer() {
 
   return (
     <footer className="mt-16 border-t border-ink-200 bg-white">
-      <div className="container-page grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-4">
+      <div className="container-page grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-5">
         <div>
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
@@ -20,8 +20,8 @@ export function Footer() {
             </span>
           </Link>
           <p className="mt-3 max-w-xs text-sm text-ink-500">
-            Moderná slovenská inzertná platforma. Pridávajte vlastné inzeráty a prehliadajte
-            ponuky z viacerých zdrojov na jednom mieste.
+            Všetky slovenské bazáre na jednom mieste. Porovnaj ceny, nájdi výhodné
+            ponuky a nechaj si strážiť novinky.
           </p>
           <div className="mt-4">
             {INSTAGRAM_URL ? (
@@ -81,12 +81,31 @@ export function Footer() {
             <li><Link href="/registracia" className="hover:text-brand-700">Registrácia</Link></li>
           </ul>
         </nav>
+
+        <nav aria-label="Prehľadávame tieto zdroje">
+          <h3 className="text-sm font-semibold text-ink-900">Prehľadávame tieto zdroje</h3>
+          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-ink-600">
+            {EXTERNAL_SOURCES.map((source) => (
+              <li key={source.name}>
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="hover:text-brand-700"
+                >
+                  {source.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
 
       <div className="border-t border-ink-100 py-5">
-        <p className="container-page text-center text-xs text-ink-400">
-          © {new Date().getFullYear()} Bazárnik. Všetky práva vyhradené.
-        </p>
+        <div className="container-page space-y-1 text-center text-xs text-ink-400">
+          <p>© {new Date().getFullYear()} Bazárnik</p>
+          <p>Inzeráty patria ich pôvodným zdrojom. Zobrazujeme len náhľad a odkaz na pôvodný inzerát.</p>
+        </div>
       </div>
     </footer>
   );
