@@ -158,13 +158,15 @@ function tokenize(s: string): string[] {
  */
 function rowMatchesWord(
   row: { title: string; description: string | null; brand: string | null; model: string | null },
-  word: string
+  word: string,
+  includeDescription: boolean
 ): boolean {
   const wordTokens = tokenize(word);
   if (wordTokens.length === 0) return false;
-  const haystack = [row.title, row.brand, row.model, row.description]
+  const haystack = [row.title, row.brand, row.model, ...(includeDescription ? [row.description] : [])]
     .filter((v): v is string => Boolean(v))
     .join(" ");
+  if (!haystack.trim()) return false;
   const rowTokens = new Set(tokenize(haystack));
   const compact = normalizeText(haystack).replace(/[^a-z0-9]/g, "");
   return wordTokens.every(
@@ -179,7 +181,8 @@ function rowMatchesWord(
 async function intersectWordIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   words: string[],
-  cap: number
+  cap: number,
+  includeDescription = true
 ): Promise<string[] | null> {
   let shared: string[] | null = null;
   for (const word of words) {
@@ -198,13 +201,28 @@ async function intersectWordIds(
       model: string | null;
     }[];
     const matched = rows
-      .filter((row) => rowMatchesWord(row, word))
+      .filter((row) => rowMatchesWord(row, word, includeDescription))
       .map((row) => row.id);
     if (matched.length === 0) return [];
     shared = shared === null ? matched : shared.filter((id) => matched.includes(id));
     if (shared.length === 0) return [];
   }
   return shared ? shared.slice(0, cap) : null;
+}
+
+
+/**
+ * Dvojúrovňová presnosť: najskôr hľadá len v názve, značke a modeli (model musí
+ * sedieť presne). Ak nič nenájde, rozšíri hľadanie aj na popis inzerátu.
+ */
+async function preciseSearchIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  words: string[]
+): Promise<string[]> {
+  const strict = await intersectWordIds(supabase, words, 1000, false);
+  if (strict && strict.length > 0) return strict;
+  const extended = await intersectWordIds(supabase, words, 1000, true);
+  return extended ?? [];
 }
 
 export async function searchListings(f: ListingFilters): Promise<SearchResult> {
@@ -228,8 +246,8 @@ export async function searchListings(f: ListingFilters): Promise<SearchResult> {
   if (f.q) {
     const words = splitSearchWords(f.q);
     if (words.length > 0) {
-      const shared = await intersectWordIds(supabase, words, 1000);
-      query = query.in("id", shared ?? [EMPTY_UUID]);
+      const ids = await preciseSearchIds(supabase, words);
+      query = query.in("id", ids.length > 0 ? ids : [EMPTY_UUID]);
     }
   }
   if (f.category) {
@@ -397,8 +415,8 @@ export async function collectPricedSample(
     if (f.q) {
       const words = splitSearchWords(f.q);
       if (words.length > 0) {
-        const shared = await intersectWordIds(supabase, words, 1000);
-        query = query.in("id", shared ?? [EMPTY_UUID]);
+        const ids = await preciseSearchIds(supabase, words);
+        query = query.in("id", ids.length > 0 ? ids : [EMPTY_UUID]);
       }
     }
     if (f.category) {
