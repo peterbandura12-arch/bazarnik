@@ -97,7 +97,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             brand: item.brand,
             model: item.model,
             location: item.location,
-            category_id: null,
+            category_id: categoryId,
             image_url: item.imageUrl,
             published_at: item.publishedAt,
             content_hash: contentHash,
