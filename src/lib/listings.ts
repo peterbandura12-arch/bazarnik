@@ -137,6 +137,45 @@ function splitSearchWords(q: string): string[] {
     .slice(0, 6);
 }
 
+/** Normalizuje text: mala pismena, bez diakritiky. */
+function normalizeText(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Tokenizuje text na slova (pismena+cisla) bez diakritiky. */
+function tokenize(s: string): string[] {
+  return normalizeText(s).match(/[a-z0-9]+/g) ?? [];
+}
+
+/**
+ * Presna zhoda slova v inzerate. Slovo sa musi najst ako CELÉ slovo
+ * (token) v nazve/popise/znacke/modeli – preto "13" nesedi na "128 GB"
+ * a "iphone 13" nesedi na "iphone 14". Tokien dlhsi ako 3 znaky
+ * sa zapocita aj pri zlepsenom spellingu (napr. "iphone13" spolu).
+ */
+function rowMatchesWord(
+  row: { title: string; description: string | null; brand: string | null; model: string | null },
+  word: string
+): boolean {
+  const wordTokens = tokenize(word);
+  if (wordTokens.length === 0) return false;
+  const haystack = [row.title, row.brand, row.model, row.description]
+    .filter((v): v is string => Boolean(v))
+    .join(" ");
+  const rowTokens = new Set(tokenize(haystack));
+  const compact = normalizeText(haystack).replace(/[^a-z0-9]/g, "");
+  return wordTokens.every(
+    (t) => rowTokens.has(t) || (t.length >= 4 && compact.includes(t))
+  );
+}
+
+/**
+ * Precizne vyhladavanie: kazde slovo musi byt najdene ako celé slovo.
+ * PostgREST ilike vrati kandidatov (podretazec), precision robi filtr nad tokenmi.
+ */
 async function intersectWordIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   words: string[],
@@ -148,12 +187,21 @@ async function intersectWordIds(
     if (!filter) continue;
     const { data } = await supabase
       .from("v_listings_search")
-      .select("id")
+      .select("id, title, description, brand, model")
       .or(filter)
       .limit(cap);
-    const ids: string[] = ((data ?? []) as { id: string }[]).map((r) => r.id);
-    if (ids.length === 0) return [];
-    shared = shared === null ? ids : shared.filter((id) => ids.includes(id));
+    const rows = (data ?? []) as {
+      id: string;
+      title: string;
+      description: string | null;
+      brand: string | null;
+      model: string | null;
+    }[];
+    const matched = rows
+      .filter((row) => rowMatchesWord(row, word))
+      .map((row) => row.id);
+    if (matched.length === 0) return [];
+    shared = shared === null ? matched : shared.filter((id) => matched.includes(id));
     if (shared.length === 0) return [];
   }
   return shared ? shared.slice(0, cap) : null;
@@ -179,12 +227,9 @@ export async function searchListings(f: ListingFilters): Promise<SearchResult> {
 
   if (f.q) {
     const words = splitSearchWords(f.q);
-    if (words.length > 1) {
-      const shared = await intersectWordIds(supabase, words, 3000);
+    if (words.length > 0) {
+      const shared = await intersectWordIds(supabase, words, 1000);
       query = query.in("id", shared ?? [EMPTY_UUID]);
-    } else {
-      const filter = anyFieldFilter(f.q);
-      if (filter) query = query.or(filter);
     }
   }
   if (f.category) {
@@ -351,12 +396,9 @@ export async function collectPricedSample(
 
     if (f.q) {
       const words = splitSearchWords(f.q);
-      if (words.length > 1) {
-        const shared = await intersectWordIds(supabase, words, 3000);
+      if (words.length > 0) {
+        const shared = await intersectWordIds(supabase, words, 1000);
         query = query.in("id", shared ?? [EMPTY_UUID]);
-      } else {
-        const filter = anyFieldFilter(f.q);
-        if (filter) query = query.or(filter);
       }
     }
     if (f.category) {
