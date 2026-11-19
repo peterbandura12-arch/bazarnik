@@ -7,6 +7,8 @@ import type { UnifiedListing } from "@/types/database";
 
 export const maxDuration = 120;
 
+const SEARCH_MARKER = "@@SEARCH@@";
+
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string().min(1).max(2000),
@@ -21,45 +23,43 @@ const CATEGORY_SLUGS = CATEGORY_TREE.flatMap((p) => [
   ...p.children.map((c) => c.slug),
 ]);
 
-const EXTRACT_SYSTEM_PROMPT = [
-  "Si modul rozhodovania asistenta slovenského bazára Bazárnik.",
-  "Vždy vráť IBA čistý JSON objekt v jednom z dvoch tvarov:",
-  '1. Ak používateľ hľadá konkrétny tovar alebo opisuje, čo chce kúpiť/predať: {"type":"search","q":"...","category":null,"minPrice":null,"maxPrice":null,"location":null,"condition":null,"text":"krátka správa pre používateľa v slovenčine"}',
-  '2. Pri všetkom ostatnom (otázky o Bazárniku, rady pri kúpe alebo predaji, orientačné ceny, všeobecné znalosti, bežná konverzácia): {"type":"text","text":"odpoveď prostredníctvom skrátenej formulácie, používateľovi odporúčame, že zodpovieme hneď"}',
-  "Pravidlá pre q: prelož všetky dôležité kľúčové slová (značka, model, typ, veľkosť, variant) do podoby, akou by predajca napísal názov inzerátu. Nepis cenu ani mesto do q – ceny do minPrice/maxPrice, mesto do location.",
+const SYSTEM_PROMPT = [
+  "Si priateľský AI asistent webu Bazárnik, slovenskej inzertnej platformy, ktorá zhromažďuje ponuky z Bazoša, Bazar.sk, Vintedu a ďalších bazárov na jednom mieste.",
+  "Odpovedaj VÝHRADNE v slovenčine, prirodzene a ľudsky.",
+  "Odpovedaj na akúkoľvek otázku – rady pri nákupe a predaji, orientačné ceny použitých vecí, bezpečné obchodovanie, technické otázky, všeobecné znalosti, bežný rozhovor. Odmietaj len nebezpečné alebo neetické veci.",
+  "ŠPECIÁLNE PRAVIDLO – ak používateľ hľadá konkrétny tovar alebo opisuje, čo chce kúpiť, sprav oboje:",
+  "1) Odpovedz krátkou správnou vetou (napr. „Hľadám pre vás ponuky…“).",
+  `2) Na úplne nový riadok potom pridaj blok presne v tvare: ${SEARCH_MARKER}{"q":"...","category":null,"minPrice":null,"maxPrice":null,"location":null,"condition":null}`,
+  "V bloku: q = všetky kľúčové slová (značka, model, variant) tak, ako by ich napísal predajca v názve inzerátu; bez cien a miest.",
   "category musí byť jeden z týchto slugov: " + CATEGORY_SLUGS.join(", ") + " alebo null.",
   "condition môže byť len jedno z: nove, ako_nove, pouzite, na_diely, alebo null.",
   "minPrice/maxPrice sú čísla v EUR alebo null. location je mesto alebo kraj v Slovensku alebo null.",
+  "Ak používateľ tovar NEHĽADÁ, blok vôbec nepridávaj – len odpovedz.",
 ].join("\n");
 
-const CHAT_SYSTEM_PROMPT = [
-  "Si priateľský AI asistent webu Bazárnik, slovenskej inzertnej platformy, ktorá zhromažďuje ponuky z Bazoša, Bazar.sk a Vintedu na jednom mieste.",
-  "Odpovedaj VÝHRADNE v slovenčine, prirodzene a ľudsky.",
-  "Odpovedaj na akúkoľvek otázku – rady pri nákupe a predaji, orientačné ceny použitých vecí, bezpečné obchodovanie, technické otázky, všeobecné znalosti aj bežný rozhovor.",
-  "Keď sa hodí, navrhni, že ti v Bazárniku vieš nájsť aj konkrétne ponuky – nech používateľ napíše, čo hľadá (napr. „hľadám horský bicykel do 200 € v Žiline”).",
-  "Buď konkrétny a vecný, odpovedaj v primeranej dĺžke.",
-].join("\n");
-
-const aiDecisionSchema = z.object({
-  type: z.enum(["search", "text"]),
-  q: z.string().max(200).optional().nullable(),
+const searchSchema = z.object({
+  q: z.string().max(200),
   category: z.string().max(60).optional().nullable(),
   minPrice: z.number().min(0).max(1_000_000).optional().nullable(),
   maxPrice: z.number().min(0).max(1_000_000).optional().nullable(),
   location: z.string().max(60).optional().nullable(),
   condition: z.enum(["nove", "ako_nove", "pouzite", "na_diely"]).optional().nullable(),
-  text: z.string().max(1000).optional().nullable(),
 });
 
-function parseDecision(raw: string): z.infer<typeof aiDecisionSchema> | null {
+function parseSearchBlock(raw: string): { intro: string; search: z.infer<typeof searchSchema> } | null {
+  const idx = raw.indexOf(SEARCH_MARKER);
+  if (idx === -1) return null;
+  const after = raw.slice(idx + SEARCH_MARKER.length);
+  let jsonText = after.trim();
+  if (jsonText.startsWith("```")) {
+    jsonText = jsonText.replace(/^```(?:json)?\s*/, "").replace(/```\s*$/, "");
+  }
+  const match = jsonText.match(/\{[\s\S]*?\}/);
+  if (!match) return null;
   try {
-    let jsonText = raw.trim();
-    if (jsonText.startsWith("```")) {
-      jsonText = jsonText.replace(/^```(?:json)?\s*/, "").replace(/```\s*$/, "");
-    }
-    const match = jsonText.match(/\{[\s\S]*\}/);
-    if (match) jsonText = match[0];
-    return aiDecisionSchema.parse(JSON.parse(jsonText));
+    const search = searchSchema.parse(JSON.parse(match[0]));
+    const intro = raw.slice(0, idx).trim();
+    return { intro, search };
   } catch {
     return null;
   }
@@ -85,15 +85,6 @@ async function runSearch(params: {
   });
 }
 
-async function conversationalReply(history: string, fallback: string) {
-  const conv = await generateText({
-    system: CHAT_SYSTEM_PROMPT,
-    prompt: history,
-    maxTokens: 1024,
-  });
-  return conv.ok && conv.text ? conv.text : fallback;
-}
-
 export async function POST(request: Request) {
   if (!isAiEnabled()) {
     return NextResponse.json(
@@ -114,17 +105,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Nesprávny formát správ." }, { status: 400 });
   }
 
-  const { messages } = parsed.data;
-  const history = messages
+  const history = parsed.data.messages
     .map((m) => `${m.role === "user" ? "Používateľ" : "Asistent"}: ${m.content}`)
     .join("\n");
 
-  const gen = await generateText({
-    system: EXTRACT_SYSTEM_PROMPT,
-    prompt: `${history}\nAsistent (vráť iba JSON):`,
-    json: true,
-    maxTokens: 700,
-  });
+  const gen = await generateText({ system: SYSTEM_PROMPT, prompt: history, maxTokens: 900 });
   if (!gen.ok || !gen.text) {
     return NextResponse.json(
       { ok: false, error: `AI odpoveď sa nepodarilo získať (${gen.detail ?? "neznáma chyba"}).` },
@@ -132,25 +117,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const decision = parseDecision(gen.text);
+  const raw = gen.text;
+  const found = parseSearchBlock(raw);
 
-  if (!decision || decision.type !== "search" || !decision.q) {
-    const fallback = decision?.text?.trim() || "Ako vám môžem pomôcť?";
-    const text = await conversationalReply(history, fallback);
+  if (!found) {
     return NextResponse.json({
       ok: true,
-      reply: { type: "text", text },
+      reply: { type: "text", text: raw.slice(0, 2000) },
       items: [] as UnifiedListing[],
     });
   }
 
+  const s = found.search;
   const base = {
-    q: decision.q,
-    category: decision.category ?? undefined,
-    minPrice: decision.minPrice != null ? String(decision.minPrice) : undefined,
-    maxPrice: decision.maxPrice != null ? String(decision.maxPrice) : undefined,
-    location: decision.location ?? undefined,
-    condition: decision.condition ?? undefined,
+    q: s.q,
+    category: s.category ?? undefined,
+    minPrice: s.minPrice != null ? String(s.minPrice) : undefined,
+    maxPrice: s.maxPrice != null ? String(s.maxPrice) : undefined,
+    location: s.location ?? undefined,
+    condition: s.condition ?? undefined,
   };
 
   try {
@@ -175,9 +160,9 @@ export async function POST(request: Request) {
         type: "search",
         text:
           result.items.length > 0
-            ? decision.text?.trim() || "Tu sú najrelevantnejšie ponuky:"
+            ? found.intro || "Tu sú najrelevantnejšie ponuky:"
             : "Nič som nenašiel – skúste jednoduchšie slová alebo širší rozsah ceny.",
-        q: decision.q,
+        q: s.q,
       },
       items: result.items,
     });

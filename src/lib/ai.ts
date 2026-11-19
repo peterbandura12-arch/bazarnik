@@ -17,7 +17,7 @@ const MODEL_FALLBACKS = [
   "gemini-3.5-flash-lite",
 ].filter((m, i, arr) => arr.indexOf(m) === i);
 
-const ATTEMPT_TIMEOUT_MS = 40_000;
+const ATTEMPT_TIMEOUT_MS = 30_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
