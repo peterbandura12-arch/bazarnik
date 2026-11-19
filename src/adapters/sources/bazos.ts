@@ -188,12 +188,28 @@ const CATEGORY_MAP: Record<string, string> = {
   www: "ostatne-inzeraty",
 };
 
+// Oficiálne regionálne RSS kanály (hlokalita = PSČ centra, humkreis = okolie v km).
+const REGION_CENTERS: Array<{ psc: string; radius: string; label: string }> = [
+  { psc: "81101", radius: "75", label: "Bratislava a okolie" },
+  { psc: "91701", radius: "60", label: "Trnava a okolie" },
+  { psc: "91101", radius: "50", label: "Trenčín a okolie" },
+  { psc: "94901", radius: "60", label: "Nitra a okolie" },
+  { psc: "01001", radius: "60", label: "Žilina a okolie" },
+  { psc: "97401", radius: "60", label: "Banská Bystrica a okolie" },
+  { psc: "96001", radius: "50", label: "Zvolen a okolie" },
+  { psc: "97201", radius: "50", label: "Prievidza a okolie" },
+  { psc: "05801", radius: "60", label: "Poprad a okolie" },
+  { psc: "08001", radius: "60", label: "Prešov a okolie" },
+  { psc: "04001", radius: "70", label: "Košice a okolie" },
+  { psc: "07101", radius: "50", label: "Michalovce a okolie" },
+];
+
 export const bazosAdapter: ExternalSourceAdapter = {
   slug: "bazos",
   name: "Bazoš.sk (oficiálny RSS)",
   websiteUrl: "https://www.bazos.sk",
   accessDescription:
-    "Číta výhradne oficiálne verejné RSS kanály Bazoša (odkaz RSS v pätičke portálu). Bez scrapingu. Feed URL sa nastavuje v external_sources.feed_url.",
+    "Číta výhradne oficiálne verejné RSS kanály Bazoša (odkaz RSS v pätičke portálu), vrátane regionálnych kanálov. Bez scrapingu. Feed URL sa nastavuje v external_sources.feed_url.",
 
   async fetchListings(config: AdapterSourceConfig): Promise<NormalizedListing[]> {
     const feedUrl = config.feedUrl;
@@ -201,72 +217,42 @@ export const bazosAdapter: ExternalSourceAdapter = {
       return [];
     }
 
-    const res = await fetch(feedUrl, {
-      headers: { Accept: "application/rss+xml, application/xml, text/xml, */*" },
-      cache: "no-store",
-    });
+    const headers = { Accept: "application/rss+xml, application/xml, text/xml, */*" };
+    const res = await fetch(feedUrl, { headers, cache: "no-store" });
     if (!res.ok) {
       throw new Error(`Bazoš RSS vrátil stav ${res.status}`);
     }
+    const baseXml = await res.text();
 
-    const xml = await res.text();
-    const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
-
-    const listings: NormalizedListing[] = [];
-    for (const block of blocks) {
-      const tag = (name: string): string | null => {
-        const match = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, "i"));
-        return match ? match[1].trim() : null;
-      };
-
-      const rawLink = tag("link") ?? tag("guid");
-      if (!rawLink || rawLink.startsWith("&lt;")) continue;
-      const url = decodeEntities(rawLink);
-
-      const rawTitle = tag("title");
-      if (!rawTitle) continue;
-      const { title, price } = splitTitle(decodeEntities(rawTitle));
-
-      const externalIdMatch = url.match(/\/inzerat\/(\d+)\//);
-      const externalId = externalIdMatch ? externalIdMatch[1] : url;
-
-      const descriptionRaw = tag("description");
-      let imageUrl: string | null = null;
-      let description: string | null = null;
-      if (descriptionRaw) {
-        const cdata = descriptionRaw.replace(/^<!\[CDATA\[|\]\]>$/g, "");
-        const imgMatch = cdata.match(/<img[^>]*src=["']([^"']+)["']/i);
-        if (imgMatch) imageUrl = imgMatch[1];
-        const text = stripHtml(cdata.replace(/<img[^>]*>/gi, " "));
-        description = text || null;
-      }
-
-      const bodyText = description ?? "";
-      let condition: ListingCondition | null = null;
-      for (const [pattern, value] of CONDITION_PATTERNS) {
-        if (pattern.test(bodyText)) {
-          condition = value;
-          break;
-        }
-      }
-      listings.push({
-        externalId,
-        url,
-        title,
-        description,
-        price,
-        currency: "EUR",
-        condition,
-        brand: null,
-        model: null,
-        location: detectLocation(`${bodyText}\n${title}`),
-        categorySlug: mapBazosCategory(url),
-        imageUrl,
-        publishedAt: tag("pubDate") ?? new Date().toISOString(),
-      });
+    const byId = new Map<string, NormalizedListing>();
+    for (const listing of parseFeed(baseXml)) {
+      byId.set(listing.externalId, listing);
     }
 
-    return listings;
+    if (/rss\.php/.test(feedUrl) && /bazos\.sk/.test(feedUrl)) {
+      for (const center of REGION_CENTERS) {
+        try {
+          const url = new URL(feedUrl);
+          url.searchParams.set("hlokalita", center.psc);
+          url.searchParams.set("humkreis", center.radius);
+          const regionRes = await fetch(url, { headers, cache: "no-store" });
+          if (!regionRes.ok) continue;
+          const regionXml = await regionRes.text();
+          for (const listing of parseFeed(regionXml, center.label)) {
+            const current = byId.get(listing.externalId);
+            if (!current) {
+              byId.set(listing.externalId, listing);
+            } else if (!current.location) {
+              current.location = listing.location;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    return [...byId.values()];
   },
 
   getCategoryFromUrl(url: string): string | null {
@@ -277,3 +263,63 @@ export const bazosAdapter: ExternalSourceAdapter = {
     return detectLocation(text);
   },
 };
+
+function parseFeed(xml: string, fallbackLocation: string | null = null): NormalizedListing[] {
+  const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
+  const listings: NormalizedListing[] = [];
+
+  for (const block of blocks) {
+    const tag = (name: string): string | null => {
+      const match = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, "i"));
+      return match ? match[1].trim() : null;
+    };
+
+    const rawLink = tag("link") ?? tag("guid");
+    if (!rawLink || rawLink.startsWith("&lt;")) continue;
+    const url = decodeEntities(rawLink);
+
+    const rawTitle = tag("title");
+    if (!rawTitle) continue;
+    const { title, price } = splitTitle(decodeEntities(rawTitle));
+
+    const externalIdMatch = url.match(/\/inzerat\/(\d+)\//);
+    const externalId = externalIdMatch ? externalIdMatch[1] : url;
+
+    const descriptionRaw = tag("description");
+    let imageUrl: string | null = null;
+    let description: string | null = null;
+    if (descriptionRaw) {
+      const cdata = descriptionRaw.replace(/^<!\[CDATA\[|\]\]>$/g, "");
+      const imgMatch = cdata.match(/<img[^>]*src=["']([^"']+)["']/i);
+      if (imgMatch) imageUrl = imgMatch[1];
+      const text = stripHtml(cdata.replace(/<img[^>]*>/gi, " "));
+      description = text || null;
+    }
+
+    const bodyText = description ?? "";
+    let condition: ListingCondition | null = null;
+    for (const [pattern, value] of CONDITION_PATTERNS) {
+      if (pattern.test(bodyText)) {
+        condition = value;
+        break;
+      }
+    }
+    listings.push({
+      externalId,
+      url,
+      title,
+      description,
+      price,
+      currency: "EUR",
+      condition,
+      brand: null,
+      model: null,
+      location: detectLocation(`${bodyText}\n${title}`) ?? fallbackLocation,
+      categorySlug: mapBazosCategory(url),
+      imageUrl,
+      publishedAt: tag("pubDate") ?? new Date().toISOString(),
+    });
+  }
+
+  return listings;
+}

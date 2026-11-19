@@ -44,6 +44,19 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
       let imported = 0;
       let updated = 0;
 
+      const existingMap = new Map<string, { id: string; content_hash: string | null; category_id: string | null; location: string | null }>();
+      for (let i = 0; i < items.length; i += 200) {
+        const batch = items.slice(i, i + 200).map((item) => item.externalId);
+        const { data: batchRows } = await admin
+          .from("external_listings")
+          .select("id, external_id, content_hash, category_id, location")
+          .eq("source_id", source.id)
+          .in("external_id", batch);
+        for (const row of batchRows ?? []) {
+          existingMap.set(row.external_id, { id: row.id, content_hash: row.content_hash, category_id: row.category_id, location: row.location });
+        }
+      }
+
       for (const item of items) {
         const contentHash = createHash("sha256")
           .update(`${item.title}|${item.price}|${item.url}`)
@@ -53,17 +66,16 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           ? categoryIds.get(item.categorySlug) ?? null
           : null;
 
-        const { data: existing } = await admin
-          .from("external_listings")
-          .select("id, content_hash, category_id")
-          .eq("source_id", source.id)
-          .eq("external_id", item.externalId)
-          .maybeSingle();
+        const existing = existingMap.get(item.externalId);
 
         const slug = `${slugify(item.title) || "ponuka"}-${item.externalId}`;
 
         if (existing) {
-          if (existing.content_hash !== contentHash || existing.category_id !== categoryId) {
+          if (
+            existing.content_hash !== contentHash ||
+            existing.category_id !== categoryId ||
+            existing.location !== item.location
+          ) {
             await admin
               .from("external_listings")
               .update({
