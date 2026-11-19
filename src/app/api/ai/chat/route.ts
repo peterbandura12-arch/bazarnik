@@ -45,7 +45,7 @@ const aiDecisionSchema = z.object({
 export async function POST(request: Request) {
   if (!isAiEnabled()) {
     return NextResponse.json(
-      { ok: false, error: "AI asistent nie je zapnutý. Doplnite GEMINI_API_KEY." },
+      { ok: false, error: "AI asistent nie je zapnutý. Doplňte GEMINI_API_KEY." },
       { status: 503 }
     );
   }
