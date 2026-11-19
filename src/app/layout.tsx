@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import { ChatWidget } from "@/components/ai/ChatWidget";
 import { ChatProvider } from "@/components/ai/ChatProvider";
+import { SyncRefresher } from "@/components/sync/SyncRefresher";
 import { isAiEnabled } from "@/lib/ai";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import "./globals.css";
@@ -44,6 +45,7 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-screen flex-col">
         <ChatProvider>
+          <SyncRefresher />
           <DemoBanner visible={!isSupabaseConfigured()} />
           <HeaderScroll>
             <Header />
