@@ -8,11 +8,11 @@ import { Badge } from "@/components/ui/Badge";
 import { FavoriteButton } from "@/components/listings/FavoriteButton";
 
 const VERDICT_STYLES: Record<string, string> = {
-  very_good: "bg-emerald-500 text-white",
-  good: "bg-green-600 text-white",
-  fair: "bg-ink-100 text-ink-600",
-  high: "bg-amber-500 text-white",
-  very_high: "bg-red-500 text-white",
+  very_good: "bg-emerald-500 text-white ring-1 ring-white/30",
+  good: "bg-green-600 text-white ring-1 ring-white/30",
+  fair: "bg-ink-800/85 text-ink-50 ring-1 ring-white/20",
+  high: "bg-amber-500 text-white ring-1 ring-white/30",
+  very_high: "bg-red-500 text-white ring-1 ring-white/30",
 };
 
 export function ListingCard({
@@ -38,7 +38,10 @@ export function ListingCard({
   const isFree = listing.price === 0;
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-200/70 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-brand-300 hover:shadow-xl hover:shadow-brand-200/50">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-200/60 bg-white shadow-sm shadow-ink-200/40 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-brand-200 hover:shadow-xl hover:shadow-brand-200/40">
+      {/* Farebný prechodový pásik na hornej strane karty – objaví sa pri hoveri */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5 bg-gradient-to-r from-brand-500 via-brand-400 to-accent-400 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
       <Link href={href} className="relative block aspect-[4/3] overflow-hidden bg-ink-100">
         {listing.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -50,7 +53,7 @@ export function ListingCard({
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-ink-50 to-ink-100 text-ink-300">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 to-accent-50 text-ink-300">
             <ImageOff className="h-10 w-10" aria-hidden />
           </div>
         )}
@@ -75,7 +78,7 @@ export function ListingCard({
         <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-wrap items-center gap-1.5">
           <span
             className={cn(
-              "rounded-full px-2.5 py-1 text-sm font-extrabold tabular-nums shadow-md backdrop-blur",
+              "rounded-full px-3 py-1 text-sm font-extrabold tabular-nums shadow-lg ring-1 ring-black/5 backdrop-blur transition-transform duration-300 group-hover:scale-105",
               isFree
                 ? "bg-emerald-500/95 text-white"
                 : "bg-white/95 text-brand-700"
@@ -97,7 +100,7 @@ export function ListingCard({
         </div>
       </Link>
 
-      <div className="absolute right-2.5 top-2.5 z-10">
+      <div className="absolute right-2.5 top-2.5 z-10 transition-transform duration-300 group-hover:scale-110">
         <FavoriteButton
           listingId={isExternal ? undefined : listing.id}
           externalListingId={isExternal ? listing.id : undefined}
@@ -108,17 +111,18 @@ export function ListingCard({
 
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         {categoryLabel && (
-          <span className="w-fit rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-700 ring-1 ring-brand-100">
+          <span className="flex w-fit items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-700 ring-1 ring-brand-100">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" aria-hidden />
             {categoryLabel}
           </span>
         )}
-        <h3 className="line-clamp-2-fallback text-sm font-semibold leading-snug text-ink-900 transition-colors group-hover:text-brand-700">
+        <h3 className="line-clamp-2-fallback text-sm font-semibold leading-snug text-ink-900 transition-colors duration-200 group-hover:text-brand-700">
           <Link href={href}>{listing.title}</Link>
         </h3>
 
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-ink-100 pt-2.5 text-xs text-ink-500">
           <span className="flex min-w-0 items-center gap-1">
-            <MapPin className="h-3 w-3 shrink-0 text-ink-400" />
+            <MapPin className="h-3 w-3 shrink-0 text-brand-500" />
             <span className="truncate">{listing.location ?? "Neuvedené"}</span>
           </span>
           <span className="shrink-0">{formatRelativeDate(listing.published_at)}</span>
