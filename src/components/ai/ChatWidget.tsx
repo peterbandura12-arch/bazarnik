@@ -116,6 +116,7 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
                         <li key={item.id}>
                           <Link
                             href={buildListingUrl(item)}
+                            onClick={() => setOpen(false)}
                             className="flex items-center gap-2 rounded-lg border border-ink-200 bg-white p-2 text-sm transition hover:border-brand-300 hover:bg-brand-50"
                           >
                             {item.image_url ? (
