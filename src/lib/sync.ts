@@ -16,6 +16,8 @@ export interface SyncSourceSummary {
   imported: number;
   updated: number;
   archived: number;
+  refined?: number;
+  scanned?: number;
   errors: string[];
 }
 
@@ -151,6 +153,8 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
 
       // Prehodnotenie kategórií podľa názvu (napr. smart hodinky z Bazoš sekcie mobil).
       const slugById = new Map((categories ?? []).map((c) => [c.id, c.slug]));
+      let refined = 0;
+      let scanned = 0;
       const REFINE_BATCH = 800;
       for (let offset = 0; offset < 5000; offset += REFINE_BATCH) {
         const { data: forRefine } = await admin
@@ -160,16 +164,18 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           .order("fetched_at", { ascending: true })
           .range(offset, offset + REFINE_BATCH - 1);
         if (!forRefine || forRefine.length === 0) break;
+        scanned += forRefine.length;
         for (const row of forRefine) {
           const currentSlug = row.category_id ? slugById.get(row.category_id) ?? null : null;
           const better = refineCategoryByTitle(row.title, currentSlug);
           if (better && better !== currentSlug) {
             const betterId = categoryIds.get(better);
             if (betterId) {
-              await admin
+              const { error: refineError } = await admin
                 .from("external_listings")
                 .update({ category_id: betterId })
                 .eq("id", row.id);
+              if (!refineError) refined++;
             }
           }
         }
@@ -263,7 +269,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         .update({ last_synced_at: new Date().toISOString() })
         .eq("id", source.id);
 
-      summary.push({ source: source.slug, imported, updated, archived: stale ?? 0, errors: [] });
+      summary.push({ source: source.slug, imported, updated, archived: stale ?? 0, refined, scanned, errors: [] });
     } catch (error) {
       summary.push({
         source: source.slug,
