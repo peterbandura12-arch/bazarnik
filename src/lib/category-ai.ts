@@ -8,7 +8,7 @@ import { CATEGORY_TREE } from "@/lib/categories";
  * inzeraty, ktore pravidla nechytia (prekleby predavcov, netypicke nazvy…).
  *
  * Vystup je vzdy len slug z nasho kategoria stromu (validovany), inak sa
- * vysledok ignoruje – AI nikdy nesmie zvit ziadat ekvivalent.
+ * vysledok ignoruje – AI nikdy nesmie vymysliet vlastnu kategoriu.
  */
 
 export interface AIClassifyInput {
@@ -22,35 +22,92 @@ const ROOT_SLUGS = CATEGORY_TREE.map((p) => p.slug);
 const CHILD_SLUGS = CATEGORY_TREE.flatMap((p) => (p.children ?? []).map((c) => c.slug));
 const VALID_SLUGS = new Set<string>([...ROOT_SLUGS, ...CHILD_SLUGS]);
 
-const BATCH_SIZE = 25;
-const MAX_BATCHES_PER_CALL = 2; // max ~50 inzeratov na jedno prebehnutie (casovy rozpocet)
+const BATCH_SIZE = 20;
+const MAX_BATCHES_PER_CALL = 2; // max ~40 inzeratov na jedno prebehnutie (casovy rozpocet)
+const MAX_TOKENS = 3000;
 
 const SYSTEM_PROMPT =
-  "Si expert na triedenie inzerátov zo slovenských a českých bázarov do kategórií. " +
-  "Pre každý inzerát určíš JEDNU najvhodnejšiu kategóriu z danej ponuky. " +
-  "Vždy preferuj konkrétnu podkategóriu (napr. smart-hodinky pred mobilne-telefony, ak sa jedná o hodinky). " +
-  "Príslušenstvo patrií k produktu, ktorého sa týka (kryt na iPhone → mobilne-telefony). " +
-  "Odpovedaj VÝHRADNE validným JSON v uvedenom formáte, bez ďalšieho textu.";
+  "Si expert na triedenie inzer\u00e1tov zo slovensk\u00fdch a \u010desk\u00fdch b\u00e1zarov do kateg\u00f3ri\u00ed. " +
+  "Pre ka\u017ed\u00fd inzer\u00e1t ur\u010d\u00ed\u0161 JEDNU najvhodnej\u0161iu kateg\u00f3riu z danej ponuky slugov. " +
+  "V\u017edy preferuj konkr\u00e9tnu podkateg\u00f3riu (napr. smart-hodinky namiesto mobilne-telefony, ke\u010f sa jedn\u00e1 o hodinky). " +
+  "Pr\u00edslu\u0161enstvo patr\u00ed k produktu, ktor\u00e9ho sa t\u00fdka (kryt na iPhone \u2192 mobilne-telefony). " +
+  "Odpovedaj V\u00ddHRADNE validn\u00fdm JSON v uvedenom tvare, bez \u010fal\u0161ieho textu.";
 
-function extractJson(text: string): unknown {
-  const trimmed = text
+function normalizeSlug(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const slug = value.trim().toLowerCase();
+  return VALID_SLUGS.has(slug) ? slug : null;
+}
+
+/** Parnutie cisla inzeratu zo zoznamu (1-based) na povodne id. */
+function parseIndex(value: unknown, batch: AIClassifyInput[]): string | null {
+  let n: number | null = null;
+  if (typeof value === "number" && Number.isFinite(value)) n = value;
+  else if (typeof value === "string") {
+    const m = value.trim().match(/\d+/);
+    if (m) n = Number(m[0]);
+  }
+  if (n === null || n < 1 || n > batch.length) return null;
+  return batch[n - 1]?.id ?? null;
+}
+
+interface RawEntry {
+  i?: unknown;
+  id?: unknown;
+  k?: unknown;
+  kategoria?: unknown;
+}
+
+/** Tolerantny parser – zvladne aj useknuty JSON (MAX_TOKENS) cez regex fallback. */
+function extractEntries(text: string): RawEntry[] | null {
+  const cleaned = text
     .trim()
     .replace(/^```(?:json)?/i, "")
     .replace(/```$/, "")
     .trim();
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start === -1 || end === -1) return null;
-  try {
-    return JSON.parse(trimmed.slice(start, end + 1));
-  } catch {
-    return null;
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      const parsed = JSON.parse(cleaned.slice(start, end + 1)) as
+        | RawEntry[]
+        | { klasifikacie?: RawEntry[] }
+        | { results?: RawEntry[] }
+        | null;
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === "object") {
+        const list = (parsed as { klasifikacie?: unknown }).klasifikacie ??
+          (parsed as { results?: unknown }).results;
+        if (Array.isArray(list)) return list as RawEntry[];
+      }
+    } catch {
+      /* padne do regex fallbacku */
+    }
   }
+
+  // Regex fallback: najde vsetky {"i":3,"k":"mobilne-telefony"} fragmenty aj v porusenom JSON.
+  const matches = [...cleaned.matchAll(/\{[^{}]*?"(?:i|id)"\s*:\s*(?:"([^"]*)"|(\d+))[^{}]*?"(?:k|kategoria)"\s*:\s*"([a-z0-9\-]+)"[^{}]*?\}/gi)];
+  if (matches.length > 0) {
+    return matches.map((m) => ({ i: m[2] ? Number(m[2]) : m[1], k: m[3] }));
+  }
+  // Obrateny poriadok klucov: {"k":"slug","i":3}
+  const reversed = [...cleaned.matchAll(/\{[^{}]*?"(?:k|kategoria)"\s*:\s*"([a-z0-9\-]+)"[^{}]*?"(?:i|id)"\s*:\s*(?:"([^"]*)"|(\d+))[^{}]*?\}/gi)];
+  if (reversed.length > 0) {
+    return reversed.map((m) => ({ i: m[3] ? Number(m[3]) : m[2], k: m[1] }));
+  }
+  return null;
 }
 
-export async function aiClassifyCategories(items: AIClassifyInput[]): Promise<Map<string, string>> {
+export interface AIClassifyOutput {
+  map: Map<string, string>;
+  sample: string | null;
+}
+
+export async function aiClassifyCategories(items: AIClassifyInput[]): Promise<AIClassifyOutput> {
   const result = new Map<string, string>();
-  if (!isAiEnabled() || items.length === 0) return result;
+  const fail = (sample: string | null): AIClassifyOutput => ({ map: result, sample });
+  if (!isAiEnabled() || items.length === 0) return fail(null);
 
   const batchCount = Math.ceil(
     Math.min(items.length, BATCH_SIZE * MAX_BATCHES_PER_CALL) / BATCH_SIZE
@@ -59,34 +116,37 @@ export async function aiClassifyCategories(items: AIClassifyInput[]): Promise<Ma
   for (let b = 0; b < batchCount; b++) {
     const batch = items.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
     const lines = batch
-      .map((it, i) => {
-        const desc = it.description ? ` | ${it.description.slice(0, 160).replace(/\s+/g, " ")}` : "";
+      .map((it, idx) => {
+        const desc = it.description ? ` | ${it.description.slice(0, 140).replace(/\s+/g, " ")}` : "";
         const cur = it.currentSlug ? ` (súčasná: ${it.currentSlug})` : "";
-        return `${i + 1}. [${it.id}] ${it.title.slice(0, 140)}${desc}${cur}`;
+        return `${idx + 1}. ${it.title.slice(0, 140)}${desc}${cur}`;
       })
       .join("\n");
 
     const slugList = [...VALID_SLUGS].join(", ");
     const prompt =
-      `Kategórie (používaj IBA tieto slugy): ${slugList}\n\n` +
-      `Inzeráty:\n${lines}\n\n` +
-      `Odpovedz JSON: {"klasifikacie":[{"id":"povodne id","kategoria":"slug"}]}`;
+      `Kategórie (používaj IBA tieto slugy, presne takto): ${slugList}\n\n` +
+      `Inzeráty (číslo na začiatku riadku je index inzerátu):\n${lines}\n\n` +
+      `Pre KAŽDÝ inzerát zo zoznamu vráť jednu položku. ` +
+      `Odpovedz VÝHRADNE JSON v tvare: {"klasifikacie":[{"i":1,"k":"slug"}]} ` +
+      `kde "i" je index inzerátu (číslo) a "k" je slug kategórie.`;
 
-    const gen = await generateText({ system: SYSTEM_PROMPT, prompt, json: true, maxTokens: 1400 });
-    if (!gen.ok || !gen.text) break;
+    const gen = await generateText({ system: SYSTEM_PROMPT, prompt, json: true, maxTokens: MAX_TOKENS });
+    if (!gen.ok || !gen.text) return fail(gen.detail ?? null);
 
-    const parsed = extractJson(gen.text) as
-      | { klasifikacie?: Array<{ id?: unknown; kategoria?: unknown }> }
-      | null;
-    if (!parsed || !Array.isArray(parsed.klasifikacie)) break;
+    const list = extractEntries(gen.text);
+    if (!list) return fail(gen.text.slice(0, 400));
 
-    for (const entry of parsed.klasifikacie) {
-      const id = typeof entry.id === "string" ? entry.id : null;
-      const slug = typeof entry.kategoria === "string" ? entry.kategoria.trim() : null;
-      if (!id || !slug || !VALID_SLUGS.has(slug)) continue;
+    let accepted = 0;
+    for (const entry of list) {
+      const id = parseIndex(entry.i ?? entry.id, batch);
+      const slug = normalizeSlug(entry.k ?? entry.kategoria);
+      if (!id || !slug) continue;
       result.set(id, slug);
+      accepted++;
     }
+    if (accepted === 0) return fail(gen.text.slice(0, 400));
   }
 
-  return result;
+  return { map: result, sample: null };
 }

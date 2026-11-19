@@ -194,6 +194,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
       let aiChecked = 0;
       let aiProposed = 0;
       let aiError: string | null = null;
+      let aiSample: string | null = null;
       if (isAiEnabled()) {
         try {
           const { data: aiPool } = await admin
@@ -217,8 +218,10 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           ].slice(0, 50);
           aiChecked = ordered.length;
 
-          const aiMap = await aiClassifyCategories(ordered);
+          const aiOut = await aiClassifyCategories(ordered);
+          const aiMap = aiOut.map;
           aiProposed = aiMap.size;
+          if (aiProposed === 0) aiSample = aiOut.sample;
           for (const [id, slug] of aiMap) {
             const item = ordered.find((p) => p.id === id);
             if (!item) continue;
@@ -325,6 +328,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
 
       const summaryEntry: SyncSourceSummary = { source: source.slug, imported, updated, archived: stale ?? 0, refined, scanned, aiRefined, aiChecked, aiProposed, errors: [] };
       if (aiError) summaryEntry.errors.push(`AI: ${aiError}`);
+      if (aiSample) summaryEntry.errors.push(`AI sample: ${aiSample}`);
       summary.push(summaryEntry);
     } catch (error) {
       summary.push({
