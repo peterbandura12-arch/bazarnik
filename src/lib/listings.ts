@@ -198,6 +198,42 @@ export async function getLatestListings(perPage = 8): Promise<SearchResult> {
   return searchListings({ sort: "najnovsie", perPage });
 }
 
+const POPULAR_KEYWORDS = [
+  "iphone",
+  "playstation",
+  "ps5",
+  "xbox",
+  "nintendo",
+  "macbook",
+  "notebook",
+  "samsung",
+  "xiaomi",
+  "airpods",
+  "apple watch",
+  "bicykel",
+  "e-bike",
+  "lego",
+  "nike",
+  "adidas",
+  "televizor",
+  "brusle",
+  "ligle",
+  "stihac",
+];
+
+/** Inzeraty, ktore v nazve obsahuju casto hladane vyrazy (popularne produkty). */
+export async function getPopularListings(perPage = 8): Promise<SearchResult> {
+  const pool = await searchListings({ sort: "najnovsie", perPage: 400 });
+  const popular = pool.items.filter((l) => {
+    const t = l.title.toLowerCase();
+    return POPULAR_KEYWORDS.some((k) => t.includes(k));
+  });
+  if (popular.length >= 4) {
+    return { ...pool, items: popular.slice(0, perPage), total: popular.length };
+  }
+  return pool;
+}
+
 
 /** Počet aktívnych inzerátov (vlastné aj externé) na rodičovskú kategóriu. */
 export async function getCategoryCounts(): Promise<Record<string, number>> {

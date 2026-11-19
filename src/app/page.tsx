@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Reveal } from "@/components/ui/Reveal";
 import { OpenChatButton } from "@/components/ui/OpenChatButton";
 import { CATEGORY_EMOJI, CATEGORY_TREE } from "@/lib/categories";
-import { getLatestListings, getCategoryCounts, searchListings } from "@/lib/listings";
+import { getLatestListings, getCategoryCounts, getPopularListings } from "@/lib/listings";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 
 const POPULAR_SEARCHES = [
@@ -72,9 +72,9 @@ export default async function HomePage() {
   const profile = isSupabaseConfigured() ? await getCurrentProfile() : null;
   const isLoggedIn = Boolean(profile);
 
-  const [latest, deals, categoryCounts] = await Promise.all([
+  const [latest, popular, categoryCounts] = await Promise.all([
     getLatestListings(8),
-    searchListings({ sort: "cena_vzostupne", perPage: 4 }),
+    getPopularListings(8),
     getCategoryCounts(),
   ]);
 
@@ -172,23 +172,21 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Najlepšie ceny dnes */}
-      {deals.items.length > 0 && (
-        <section className="container-page pt-12">
+      {/* Populárne produkty */}
+      <section className="container-page pt-12">
 <Reveal>
           <SectionHeader
-            title="Najlepšie ceny dnes"
-            subtitle="Ponuky, ktorých cena je výrazne pod mediánom podobných inzerátov"
-            href="/inzeraty?sort=cena_vzostupne"
+            title="Populárne produkty"
+            subtitle="Inzeráty, ktoré ľudia hľadajú najviac"
+            href="/inzeraty"
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {deals.items.map((listing) => (
+            {popular.items.map((listing) => (
               <ListingCard key={listing.id} listing={listing} isLoggedIn={isLoggedIn} />
             ))}
           </div>
         </Reveal>
       </section>
-      )}
 
       {/* Čerstvo pridané */}
       <section className="container-page pt-12">

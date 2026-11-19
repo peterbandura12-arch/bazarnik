@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdapter } from "@/adapters/registry";
 import { upgradeBazosImageUrl } from "@/adapters/sources/bazos";
 import { computeFocalPoint } from "@/lib/image-focus";
+import { refineCategoryByTitle } from "@/lib/category-refine";
 import { slugify } from "@/lib/utils";
 
 /**
@@ -76,7 +77,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           .digest("hex");
 
         const categoryId = item.categorySlug
-          ? categoryIds.get(item.categorySlug) ?? null
+          ? categoryIds.get(refineCategoryByTitle(item.title, item.categorySlug)) ?? null
           : null;
 
         const existing = existingMap.get(item.externalId);
@@ -146,6 +147,27 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           .eq("source_id", source.id)
           .eq("is_available", true)
           .lt("fetched_at", availabilityCutoff);
+      }
+
+      // Prehodnotenie kategórií podľa názvu (napr. smart hodinky z Bazoš sekcie mobil).
+      const slugById = new Map((categories ?? []).map((c) => [c.id, c.slug]));
+      const { data: forRefine } = await admin
+        .from("external_listings")
+        .select("id, title, category_id")
+        .eq("source_id", source.id)
+        .limit(800);
+      for (const row of forRefine ?? []) {
+        const currentSlug = row.category_id ? slugById.get(row.category_id) ?? null : null;
+        const better = refineCategoryByTitle(row.title, currentSlug);
+        if (better && better !== currentSlug) {
+          const betterId = categoryIds.get(better);
+          if (betterId) {
+            await admin
+              .from("external_listings")
+              .update({ category_id: betterId })
+              .eq("id", row.id);
+          }
+        }
       }
 
       // Doplnenie kategórií inzerátom importovaným pred zavedením mapovania.
