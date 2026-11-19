@@ -8,6 +8,7 @@ interface SearchResult {
   link: string;
   snippet: string;
   displayLink: string;
+  thumbnail: string | null;
 }
 
 const PORTALS = [
@@ -136,13 +137,28 @@ export function ExternalSearchClient({ enabled }: { enabled: boolean }) {
                   href={item.link}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  className="block rounded-xl border border-ink-100 bg-white p-4 transition-colors hover:border-brand-300"
+                  className="flex gap-3 rounded-xl border border-ink-100 bg-white p-3 transition-colors hover:border-brand-300 sm:p-4"
                 >
-                  <span className="block font-medium text-brand-700">{item.title}</span>
-                  {item.snippet && <span className="mt-1 block text-sm text-ink-600">{item.snippet}</span>}
-                  {item.displayLink && (
-                    <span className="mt-1 block text-xs text-ink-400">{item.displayLink}</span>
+                  {item.thumbnail ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.thumbnail}
+                      alt=""
+                      loading="lazy"
+                      className="h-20 w-20 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-ink-50">
+                      <Search className="h-6 w-6 text-ink-200" />
+                    </span>
                   )}
+                  <span className="min-w-0">
+                    <span className="block font-medium text-brand-700">{item.title}</span>
+                    {item.snippet && <span className="mt-1 block line-clamp-2 text-sm text-ink-600">{item.snippet}</span>}
+                    {item.displayLink && (
+                      <span className="mt-1 block text-xs text-ink-400">{item.displayLink}</span>
+                    )}
+                  </span>
                 </a>
               </li>
             ))}

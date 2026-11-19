@@ -65,12 +65,20 @@ export async function GET(request: Request) {
   }
 
   const data = (await res.json()) as { items?: Array<Record<string, unknown>> };
-  const items = (data.items ?? []).map((item) => ({
-    title: typeof item.title === "string" ? item.title : "",
-    link: typeof item.link === "string" ? item.link : "",
-    snippet: typeof item.snippet === "string" ? item.snippet : "",
-    displayLink: typeof item.displayLink === "string" ? item.displayLink : "",
-  }));
+  const items = (data.items ?? []).map((item) => {
+    const pagemap = item.pagemap as
+      | { cse_image?: Array<{ src?: string }>; cse_thumbnail?: Array<{ src?: string }> }
+      | undefined;
+    const thumbnail =
+      pagemap?.cse_thumbnail?.[0]?.src ?? pagemap?.cse_image?.[0]?.src ?? null;
+    return {
+      title: typeof item.title === "string" ? item.title : "",
+      link: typeof item.link === "string" ? item.link : "",
+      snippet: typeof item.snippet === "string" ? item.snippet : "",
+      displayLink: typeof item.displayLink === "string" ? item.displayLink : "",
+      thumbnail: typeof thumbnail === "string" ? thumbnail : null,
+    };
+  });
 
   return NextResponse.json({ enabled: true, items });
 }
