@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bot, Loader2, Send, Sparkles, X } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { buildListingUrl, formatPrice } from "@/lib/utils";
 import type { UnifiedListing } from "@/types/database";
 
 interface ChatMessage {
@@ -30,9 +30,14 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
   }, [messages, open]);
 
   useEffect(() => {
+    const win = window as unknown as { __bazarnikOpenChat?: () => void };
     const openChat = () => setOpen(true);
+    win.__bazarnikOpenChat = openChat;
     window.addEventListener("bazarnik:open-chat", openChat);
-    return () => window.removeEventListener("bazarnik:open-chat", openChat);
+    return () => {
+      window.removeEventListener("bazarnik:open-chat", openChat);
+      delete win.__bazarnikOpenChat;
+    };
   }, []);
 
   if (!enabled) return null;
@@ -120,7 +125,7 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
                       {m.items.map((item) => (
                         <li key={item.id}>
                           <Link
-                            href={`/inzerat/${item.slug}`}
+                            href={buildListingUrl(item)}
                             className="flex items-center gap-2 rounded-lg border border-ink-200 bg-white p-2 text-sm transition hover:border-brand-300 hover:bg-brand-50"
                           >
                             {item.image_url ? (
