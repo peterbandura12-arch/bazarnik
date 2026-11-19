@@ -103,7 +103,9 @@ body {
   animation: gradient-x 6s ease infinite;
 }
 
-.reveal {
+/* Obsah je predvolene viditelný. Skrytie spustí iba JS (class `js` na <html>),
+   takže pri chybe či blokovanom JavaScripte nikdy nezostane prázdna stránka. */
+.js .reveal {
   opacity: 0;
   transform: translateY(24px);
   transition:
@@ -112,13 +114,18 @@ body {
   will-change: opacity, transform;
 }
 
+.js .reveal-visible {
+  opacity: 1;
+  transform: none;
+}
+
 .reveal-visible {
   opacity: 1;
   transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal {
+  .js .reveal {
     opacity: 1;
     transform: none;
     transition: none;

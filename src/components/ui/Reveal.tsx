@@ -22,17 +22,26 @@ export function Reveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const show = () => setVisible(true);
+    const fallback = window.setTimeout(show, 2000);
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setVisible(true);
+          show();
           observer.disconnect();
         }
       },
       { threshold: 0.1, rootMargin: "0px 0px -60px 0px" }
     );
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      window.clearTimeout(fallback);
+      observer.disconnect();
+    };
   }, []);
 
   return (

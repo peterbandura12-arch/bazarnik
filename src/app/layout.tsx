@@ -34,6 +34,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="sk">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "document.documentElement.classList.add('js');",
+          }}
+        />
+      </head>
       <body className="flex min-h-screen flex-col">
         <ChatProvider>
           <DemoBanner visible={!isSupabaseConfigured()} />
