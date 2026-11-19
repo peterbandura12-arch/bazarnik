@@ -21,6 +21,8 @@ export interface SyncSourceSummary {
   refined?: number;
   scanned?: number;
   aiRefined?: number;
+  aiChecked?: number;
+  aiProposed?: number;
   errors: string[];
 }
 
@@ -189,6 +191,9 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
       // novych 50 inzeratov (nekategorizovani maju prioritu) a spravne presunie i take,
       // ktore pravidlovy refine nechyt.
       let aiRefined = 0;
+      let aiChecked = 0;
+      let aiProposed = 0;
+      let aiError: string | null = null;
       if (isAiEnabled()) {
         try {
           const { data: aiPool } = await admin
@@ -210,8 +215,10 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             ...pool.filter((p) => !p.currentSlug),
             ...pool.filter((p) => p.currentSlug),
           ].slice(0, 50);
+          aiChecked = ordered.length;
 
           const aiMap = await aiClassifyCategories(ordered);
+          aiProposed = aiMap.size;
           for (const [id, slug] of aiMap) {
             const item = ordered.find((p) => p.id === id);
             if (!item) continue;
@@ -223,8 +230,9 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
               .eq("id", id);
             if (!aiErr) aiRefined++;
           }
-        } catch {
+        } catch (err) {
           // AI klasifikacia nikdy nesmie spadnut synchronizaciu
+          aiError = err instanceof Error ? err.message.slice(0, 200) : "neznama chyba";
         }
       }
 
@@ -315,7 +323,9 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         .update({ last_synced_at: new Date().toISOString() })
         .eq("id", source.id);
 
-      summary.push({ source: source.slug, imported, updated, archived: stale ?? 0, refined, scanned, aiRefined, errors: [] });
+      const summaryEntry: SyncSourceSummary = { source: source.slug, imported, updated, archived: stale ?? 0, refined, scanned, aiRefined, aiChecked, aiProposed, errors: [] };
+      if (aiError) summaryEntry.errors.push(`AI: ${aiError}`);
+      summary.push(summaryEntry);
     } catch (error) {
       summary.push({
         source: source.slug,
