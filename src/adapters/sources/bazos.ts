@@ -56,6 +56,93 @@ function parsePriceText(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+// Zoznam väčších miest SR/ČR – vyhľadáva sa koreň názvu (kryje tvary „Nitra/Nitre/nitriansky“ atď.).
+const CITY_STEMS: Array<[string, string]> = [
+  ["Bratislav", "Bratislava"],
+  ["Košic", "Košice"],
+  ["Preš", "Prešov"],
+  ["Žilin", "Žilina"],
+  ["Nitr", "Nitra"],
+  ["Bystric", "Banská Bystrica"],
+  ["Trnav", "Trnava"],
+  ["Trenč", "Trenčín"],
+  ["Poprad", "Poprad"],
+  ["Prievidz", "Prievidza"],
+  ["Zvolen", "Zvolen"],
+  ["Považsk", "Považská Bystrica"],
+  ["Michalovc", "Michalovce"],
+  ["Zámky", "Nové Zámky"],
+  ["Spišsk", "Spišská Nová Ves"],
+  ["Komárn", "Komárno"],
+  ["Humenn", "Humenné"],
+  ["Levic", "Levice"],
+  ["Bardejov", "Bardejov"],
+  ["Liptovsk", "Liptovský Mikuláš"],
+  ["Ružomber", "Ružomberok"],
+  ["Piešťan", "Piešťany"],
+  ["Lučen", "Lučenec"],
+  ["Topoľčan", "Topoľčany"],
+  ["Pezin", "Pezinok"],
+  ["Čadc", "Čadca"],
+  ["Dunajsk", "Dunajská Streda"],
+  ["Trebišov", "Trebišov"],
+  ["Rimavsk", "Rimavská Sobota"],
+  ["Šamorín", "Šamorín"],
+  ["Senec", "Senec"],
+  ["Malack", "Malacky"],
+  ["Senic", "Senica"],
+  ["Brezno", "Brezno"],
+  ["Sabinov", "Sabinov"],
+  ["Moravce", "Zlaté Moravce"],
+  ["Rožňav", "Rožňava"],
+  ["Štiavnic", "Banská Štiavnica"],
+  ["Holíč", "Holíč"],
+  ["Myjav", "Myjava"],
+  ["Skalic", "Skalica"],
+  ["Ľubovň", "Stará Ľubovňa"],
+  ["Kežmar", "Kežmarok"],
+  ["Svidník", "Svidník"],
+  ["Vranov", "Vranov nad Topľou"],
+  ["Kubín", "Dolný Kubín"],
+  ["Krtíš", "Veľký Krtíš"],
+  ["Detv", "Detva"],
+  ["Revúc", "Revúca"],
+  ["Kapušan", "Veľké Kapušany"],
+  ["Krompach", "Krompachy"],
+  ["Levoč", "Levoča"],
+  ["Partizánsk", "Partizánske"],
+  ["Stropkov", "Stropkov"],
+  ["Nosovic", "Zlaté Moravce"],
+  ["Sereď", "Sereď"],
+  ["Hlohov", "Hlohovec"],
+  ["Nové Mesto", "Nové Mesto nad Váhom"],
+  ["Šaľ", "Šaľa"],
+  ["Galant", "Galanta"],
+  ["Púchov", "Púchov"],
+  ["Ilav", "Ilava"],
+  ["Kysuck", "Kysucké Nové Mesto"],
+  ["Pr (?:a|á|e)", "Praha"],
+  ["Praž", "Praha"],
+  ["Brn", "Brno"],
+  ["Ostrav", "Ostrava"],
+  ["Olomouc", "Olomouc"],
+  ["Plzeň", "Plzeň"],
+  ["Hradec", "Hradec Králové"],
+];
+
+function detectLocation(text: string | null): string | null {
+  if (!text) return null;
+  const explicit = text.match(/\b(?:mesto|lokalita|kraj|okres|miesto)\s*:\s*([^\n<,;.]{2,40})/i);
+  if (explicit) {
+    const value = explicit[1].trim().replace(/\s+/g, " ");
+    if (value && !/^(neuveden|nie je|dohod)/i.test(value)) return value;
+  }
+  for (const [stem, city] of CITY_STEMS) {
+    if (new RegExp(`\\b${stem}`, "i").test(text)) return city;
+  }
+  return null;
+}
+
 function mapBazosCategory(url: string): string | null {
   const sub = url.match(/^https:\/\/([^.]+)\.bazos\.sk\//)?.[1] ?? null;
   return sub ? CATEGORY_MAP[sub] ?? null : null;
@@ -172,7 +259,7 @@ export const bazosAdapter: ExternalSourceAdapter = {
         condition,
         brand: null,
         model: null,
-        location: null,
+        location: detectLocation(`${bodyText}\n${title}`),
         categorySlug: mapBazosCategory(url),
         imageUrl,
         publishedAt: tag("pubDate") ?? new Date().toISOString(),
@@ -184,5 +271,9 @@ export const bazosAdapter: ExternalSourceAdapter = {
 
   getCategoryFromUrl(url: string): string | null {
     return mapBazosCategory(url);
+  },
+
+  getLocationFromText(text: string): string | null {
+    return detectLocation(text);
   },
 };

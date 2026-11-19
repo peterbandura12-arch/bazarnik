@@ -124,6 +124,23 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         }
       }
 
+      // Doliečenie polohy inzerátom importovaným pred zavedením detekcie.
+      const { data: unlocated } = await admin
+        .from("external_listings")
+        .select("id, title, description")
+        .eq("source_id", source.id)
+        .is("location", null)
+        .limit(500);
+      for (const row of unlocated ?? []) {
+        const location = adapter.getLocationFromText?.(`${row.title}\n${row.description ?? ""}`) ?? null;
+        if (location) {
+          await admin
+            .from("external_listings")
+            .update({ location })
+            .eq("id", row.id);
+        }
+      }
+
       await admin
         .from("external_sources")
         .update({ last_synced_at: new Date().toISOString() })

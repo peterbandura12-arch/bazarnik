@@ -53,6 +53,9 @@ export interface ExternalSourceAdapter {
 
   /** Voliteľne odvodí slug kategórie Bazárnika z URL inzerátu – na doliečenie starých importov. */
   getCategoryFromUrl?(url: string): string | null;
+
+  /** Voliteľne odvodí polohu (mesto) z textu inzerátu – na doliečenie starých importov. */
+  getLocationFromText?(text: string): string | null;
 }
 
 export class UnsupportedSourceError extends Error {
