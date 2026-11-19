@@ -103,6 +103,62 @@ function paginate(items: UnifiedListing[], page: number, perPage: number) {
   return items.slice(start, start + perPage);
 }
 
+/**
+ * Politie hladania: znaky, ktore by rozbili syntax PostgREST `or(...)` filtra,
+ * sa z hladaneho vyrazu odstrania.
+ */
+function sanitizeSearchTerm(term: string): string {
+  return term.replace(/[(),*%"'\\]/g, " ").trim();
+}
+
+/**
+ * Fulltext filter cez vsetky relevantne polia (nazov, popis, znacka, model)
+ * pre jeden hladany vyraz.
+ */
+function anyFieldFilter(term: string): string {
+  const t = sanitizeSearchTerm(term);
+  if (!t) return "";
+  return [
+    `title.ilike.*${t}*`,
+    `description.ilike.*${t}*`,
+    `brand.ilike.*${t}*`,
+    `model.ilike.*${t}*`,
+  ].join(",");
+}
+
+/**
+ * Rozdeli hladany vyraz na slova. Pri viacerych slovach sa hlada tak,
+ * ze kazde slovo musi najst aspon v jednom poli (AND napriec poliami).
+ */
+function splitSearchWords(q: string): string[] {
+  return sanitizeSearchTerm(q)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+async function intersectWordIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  words: string[],
+  cap: number
+): Promise<string[] | null> {
+  let shared: string[] | null = null;
+  for (const word of words) {
+    const filter = anyFieldFilter(word);
+    if (!filter) continue;
+    const { data } = await supabase
+      .from("v_listings_search")
+      .select("id")
+      .or(filter)
+      .limit(cap);
+    const ids: string[] = ((data ?? []) as { id: string }[]).map((r) => r.id);
+    if (ids.length === 0) return [];
+    shared = shared === null ? ids : shared.filter((id) => ids.includes(id));
+    if (shared.length === 0) return [];
+  }
+  return shared ? shared.slice(0, cap) : null;
+}
+
 export async function searchListings(f: ListingFilters): Promise<SearchResult> {
   const page = Math.max(1, f.page ?? 1);
   const perPage = Math.min(48, Math.max(1, f.perPage ?? 24));
@@ -121,7 +177,16 @@ export async function searchListings(f: ListingFilters): Promise<SearchResult> {
   const supabase = await createClient();
   let query = supabase.from("v_listings_search").select("*", { count: "exact" });
 
-  if (f.q) query = query.ilike("title", `%${f.q}%`);
+  if (f.q) {
+    const words = splitSearchWords(f.q);
+    if (words.length > 1) {
+      const shared = await intersectWordIds(supabase, words, 3000);
+      query = query.in("id", shared ?? [EMPTY_UUID]);
+    } else {
+      const filter = anyFieldFilter(f.q);
+      if (filter) query = query.or(filter);
+    }
+  }
   if (f.category) {
     if (UUID_REGEXP.test(f.category)) {
       query = query.eq("category_id", f.category);

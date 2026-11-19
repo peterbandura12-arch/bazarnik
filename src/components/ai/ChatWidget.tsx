@@ -16,7 +16,7 @@ interface ChatMessage {
 const GREETING: ChatMessage = {
   role: "assistant",
   content:
-    "Dobrý deň! Som AI asistent Bazárnik. Napíšte mi, čo hľadáte (napr. horský bicykel do 200 €) a nájdem relevantné inzeráty.",
+    "Dobrý deň! Som AI asistent Bazárnik. Napíšte mi, čo hľadáte (napr. horský bicykel do 200 € v Žiline) a nájdem relevantné inzeráty. Poradím vám aj s cenami, predajom alebo čímkoľvek iným – pýtajte sa na všetko.",
 };
 
 export function ChatWidget({ enabled }: { enabled: boolean }) {
@@ -171,7 +171,7 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
                   send();
                 }
               }}
-              placeholder="Čo hľadáte?"
+              placeholder="Čo hľadáte alebo sa chcete spýtať?"
               className="min-w-0 flex-1 rounded-full border border-ink-200 bg-ink-50 px-4 py-2 text-sm outline-none focus:border-brand-500"
             />
             <button
