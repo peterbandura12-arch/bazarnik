@@ -230,7 +230,7 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
         </div>
       )}
 
-      <div className="flex flex-col items-end gap-2">
+      <div className="flex items-center gap-3">
         <Link
           href="/pridat-inzerat"
           title="Pridať inzerát"
@@ -247,22 +247,22 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
         >
           <Heart className="h-5 w-5" />
         </Link>
-      </div>
 
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-label="Otvoriť AI asistenta"
-        className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-xl transition-transform hover:scale-105"
-      >
-        {open ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
-        {!open && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-400 opacity-75" />
-            <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-accent-500" />
-          </span>
-        )}
-      </button>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-label="Otvoriť AI asistenta"
+          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-xl transition-transform hover:scale-105"
+        >
+          {open ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
+          {!open && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-400 opacity-75" />
+              <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-accent-500" />
+            </span>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
