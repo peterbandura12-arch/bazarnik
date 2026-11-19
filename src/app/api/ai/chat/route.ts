@@ -67,13 +67,14 @@ export async function POST(request: Request) {
     .join("\n");
   const prompt = `${history}\nAsistent (vráť iba JSON):`;
 
-  const raw = await generateText({ system: SYSTEM_PROMPT, prompt, json: true, maxTokens: 512 });
-  if (!raw) {
+  const gen = await generateText({ system: SYSTEM_PROMPT, prompt, json: true, maxTokens: 512 });
+  if (!gen.ok || !gen.text) {
     return NextResponse.json(
-      { ok: false, error: "AI odpoveď sa nepodarilo získať, skúste to ešte raz." },
+      { ok: false, error: `AI odpoveď sa nepodarilo získať (${gen.detail ?? "neznáma chyba"}).` },
       { status: 502 }
     );
   }
+  const raw: string = gen.text;
 
   let decision: z.infer<typeof aiDecisionSchema>;
   try {

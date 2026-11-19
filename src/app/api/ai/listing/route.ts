@@ -70,19 +70,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const raw = await generateText({
+  const gen = await generateText({
     system: SYSTEM_PROMPT,
     prompt: `Popis inzerátu od používateľa:\n"""${parsed.data.text}"""\nVráť iba JSON:`,
     json: true,
     maxTokens: 1200,
   });
 
-  if (!raw) {
+  if (!gen.ok || !gen.text) {
     return NextResponse.json(
-      { ok: false, error: "AI teraz nedostupná (kvóta alebo sieť) – skúste to o chvíľu." },
+      { ok: false, error: `AI teraz nedostupná (${gen.detail ?? "neznáma chyba"}) – skúste to o chvíľu.` },
       { status: 502 }
     );
   }
+  const raw: string = gen.text;
 
   try {
     let jsonText = raw.trim();

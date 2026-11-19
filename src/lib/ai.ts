@@ -2,25 +2,30 @@ export function isAiEnabled(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
-interface GenerateTextOptions {
-  system: string;
-  prompt: string;
-  json?: boolean;
-  maxTokens?: number;
+export interface GenerateResult {
+  ok: boolean;
+  text: string | null;
+  status?: number;
+  detail?: string;
 }
 
 /**
  * Zavola Google Gemini (gemini-2.0-flash) a vrati vygenerovany text.
- * Pri chybe alebo chybajucej konfiguracii vrati null.
+ * Pri chybe vrati ok:false + detail (HTTP kod alebo popis) na debugovanie.
  */
 export async function generateText({
   system,
   prompt,
   json = false,
   maxTokens = 1024,
-}: GenerateTextOptions): Promise<string | null> {
+}: {
+  system: string;
+  prompt: string;
+  json?: boolean;
+  maxTokens?: number;
+}): Promise<GenerateResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return { ok: false, text: null, detail: "missing-key" };
 
   try {
     const res = await fetch(
@@ -41,15 +46,37 @@ export async function generateText({
       }
     );
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errText = await res.text();
+        try {
+          const parsed = JSON.parse(errText) as { error?: { message?: string } };
+          detail = `${res.status}: ${parsed.error?.message ?? errText.slice(0, 200)}`;
+        } catch {
+          detail = `${res.status}: ${errText.slice(0, 200)}`;
+        }
+      } catch {
+        /* keep default */
+      }
+      return { ok: false, text: null, status: res.status, detail };
+    }
 
     const data = await res.json();
     const text =
       data?.candidates?.[0]?.content?.parts
         ?.map((p: { text?: string } | null) => p?.text ?? "")
         .join("") ?? "";
-    return text.trim() || null;
-  } catch {
-    return null;
+    if (!text.trim()) {
+      const reason = data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason;
+      return { ok: false, text: null, status: res.status, detail: `prazdna odpoved${reason ? ` (${String(reason)})` : ""}` };
+    }
+    return { ok: true, text: text.trim() };
+  } catch (err) {
+    return {
+      ok: false,
+      text: null,
+      detail: err instanceof Error ? `fetch: ${err.message}` : "fetch-failed",
+    };
   }
 }
