@@ -157,7 +157,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           .from("external_listings")
           .select("id, title, category_id")
           .eq("source_id", source.id)
-          .order("created_at", { ascending: true })
+          .order("fetched_at", { ascending: true })
           .range(offset, offset + REFINE_BATCH - 1);
         if (!forRefine || forRefine.length === 0) break;
         for (const row of forRefine) {
