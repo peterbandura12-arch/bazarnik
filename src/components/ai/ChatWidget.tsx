@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bot, Loader2, Send, Sparkles, X } from "lucide-react";
-import { buildListingUrl, formatPrice } from "@/lib/utils";
+import { buildListingUrl, cn, formatPrice } from "@/lib/utils";
+import { computePriceStats, getPriceVerdict } from "@/lib/price-analysis";
 import { useChat } from "@/components/ai/ChatProvider";
 import type { UnifiedListing } from "@/types/database";
 
@@ -18,6 +19,86 @@ const GREETING: ChatMessage = {
   content:
     "Dobrý deň! Som AI asistent Bazárnik. Napíšte mi, čo hľadáte (napr. horský bicykel do 200 € v Žiline) a nájdem relevantné inzeráty. Poradím vám aj s cenami, predajom alebo čímkoľvek iným – pýtajte sa na všetko.",
 };
+
+function ChatResults({ items, onClose }: { items: UnifiedListing[]; onClose: () => void }) {
+  const priced = items
+    .map((item) => (typeof item.price === "number" ? item.price : null))
+    .filter((p): p is number => p !== null && p > 0);
+  const stats = computePriceStats(priced);
+  const showStats = stats.median != null && priced.length >= 3;
+
+  return (
+    <>
+      {showStats && (
+        <div className="rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-2 text-[11px] leading-relaxed text-ink-700">
+          <p className="font-bold text-brand-700">Analýza cien ({stats.count} inzerátov)</p>
+          <p>
+            Priemer <b>{formatPrice(Math.round(stats.average ?? 0), "EUR")}</b> · Medián{" "}
+            <b>{formatPrice(Math.round(stats.median ?? 0), "EUR")}</b>
+          </p>
+          <p>
+            Rozpätie {formatPrice(Math.round(stats.min ?? 0), "EUR")} –{" "}
+            {formatPrice(Math.round(stats.max ?? 0), "EUR")}
+          </p>
+        </div>
+      )}
+      <ul className="space-y-1.5">
+        {items.map((item) => {
+          const verdict = showStats ? getPriceVerdict(item.price, stats.median) : null;
+          return (
+            <li key={item.id}>
+              <Link
+                href={buildListingUrl(item)}
+                onClick={onClose}
+                className="flex items-center gap-2 rounded-lg border border-ink-200 bg-white p-2 text-sm transition hover:border-brand-300 hover:bg-brand-50"
+              >
+                {item.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.image_url}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded object-cover"
+                    style={{
+                      objectPosition:
+                        item.focal_x != null && item.focal_y != null
+                          ? `${(item.focal_x * 100).toFixed(0)}% ${(item.focal_y * 100).toFixed(0)}%`
+                          : "50% 50%",
+                    }}
+                  />
+                ) : (
+                  <span className="h-10 w-10 shrink-0 rounded bg-ink-100" />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-ink-900">
+                    {item.title}
+                  </span>
+                  <span className="text-xs text-ink-500">
+                    {item.location ?? "Slovensko"}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-sm font-bold text-brand-700">
+                    {formatPrice(item.price, item.currency)}
+                  </span>
+                  {verdict && verdict.level !== "fair" && (
+                    <span
+                      className={cn(
+                        "block text-[10px] font-semibold",
+                        verdict.diffPct <= -10 ? "text-emerald-600" : "text-amber-600"
+                      )}
+                    >
+                      {verdict.label}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
 
 export function ChatWidget({ enabled }: { enabled: boolean }) {
   const { chatOpen: open, setChatOpen: setOpen } = useChat();
@@ -111,45 +192,7 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
                     {m.content}
                   </p>
                   {m.items && m.items.length > 0 && (
-                    <ul className="space-y-1.5">
-                      {m.items.map((item) => (
-                        <li key={item.id}>
-                          <Link
-                            href={buildListingUrl(item)}
-                            onClick={() => setOpen(false)}
-                            className="flex items-center gap-2 rounded-lg border border-ink-200 bg-white p-2 text-sm transition hover:border-brand-300 hover:bg-brand-50"
-                          >
-                            {item.image_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={item.image_url}
-                                alt=""
-                                className="h-10 w-10 shrink-0 rounded object-cover"
-                                style={{
-                                  objectPosition:
-                                    item.focal_x != null && item.focal_y != null
-                                      ? `${(item.focal_x * 100).toFixed(0)}% ${(item.focal_y * 100).toFixed(0)}%`
-                                      : "50% 50%",
-                                }}
-                              />
-                            ) : (
-                              <span className="h-10 w-10 shrink-0 rounded bg-ink-100" />
-                            )}
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate font-medium text-ink-900">
-                                {item.title}
-                              </span>
-                              <span className="text-xs text-ink-500">
-                                {item.location ?? "Slovensko"}
-                              </span>
-                            </span>
-                            <span className="shrink-0 text-sm font-bold text-brand-700">
-                              {formatPrice(item.price, item.currency)}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+                    <ChatResults items={m.items} onClose={() => setOpen(false)} />
                   )}
                 </div>
               )

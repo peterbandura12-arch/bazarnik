@@ -3,17 +3,28 @@ import { ImageOff, MapPin, ExternalLink } from "lucide-react";
 import type { UnifiedListing } from "@/types/database";
 import { cn, formatPrice, formatRelativeDate, CONDITION_LABELS, buildListingUrl } from "@/lib/utils";
 import { getCategoryLabel } from "@/lib/categories";
+import type { PriceVerdict } from "@/lib/price-analysis";
 import { Badge } from "@/components/ui/Badge";
 import { FavoriteButton } from "@/components/listings/FavoriteButton";
+
+const VERDICT_STYLES: Record<string, string> = {
+  very_good: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  good: "bg-green-50 text-green-700 ring-green-200",
+  fair: "bg-ink-50 text-ink-500 ring-ink-200",
+  high: "bg-amber-50 text-amber-700 ring-amber-200",
+  very_high: "bg-red-50 text-red-600 ring-red-200",
+};
 
 export function ListingCard({
   listing,
   isLoggedIn,
   isFavorite = false,
+  priceVerdict,
 }: {
   listing: UnifiedListing;
   isLoggedIn: boolean;
   isFavorite?: boolean;
+  priceVerdict?: PriceVerdict | null;
 }) {
   const href = buildListingUrl(listing);
   const isExternal = listing.source_type === "external";
@@ -81,6 +92,22 @@ export function ListingCard({
         >
           {formatPrice(listing.price, listing.currency)}
         </p>
+        {priceVerdict && (
+          <span
+            className={cn(
+              "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
+              VERDICT_STYLES[priceVerdict.level]
+            )}
+            title={`${priceVerdict.diffPct > 0 ? "+" : ""}${priceVerdict.diffPct} % oproti mediánu vyhľadávania`}
+          >
+            {priceVerdict.label}
+            {priceVerdict.diffPct !== 0 && (
+              <span className="font-medium opacity-80">
+                ({priceVerdict.diffPct > 0 ? "+" : ""}{priceVerdict.diffPct} %)
+              </span>
+            )}
+          </span>
+        )}
         <div className="flex items-center justify-between text-xs text-ink-500">
           <span className="flex items-center gap-1">
             <MapPin className="h-3 w-3" />

@@ -323,3 +323,65 @@ export async function getCategoryCounts(): Promise<Record<string, number>> {
     return {};
   }
 }
+
+export interface PricedSample {
+  id: string;
+  title: string;
+  price: number;
+}
+
+/** Zber vzorky cien pre analýzu (rovnaké filtre ako searchListings, len položky s cenou). */
+export async function collectPricedSample(
+  f: ListingFilters,
+  cap = 400
+): Promise<PricedSample[]> {
+  if (!isSupabaseConfigured()) {
+    return DEMO_LISTINGS.slice(0, cap)
+      .map((l) => ({ id: l.id, title: l.title, price: Number(l.price ?? 0) }))
+      .filter((r) => r.price > 0);
+  }
+
+  try {
+    const supabase = await createClient();
+    let query = supabase
+      .from("v_listings_search")
+      .select("id, title, price")
+      .not("price", "is", null)
+      .gt("price", 0);
+
+    if (f.q) {
+      const words = splitSearchWords(f.q);
+      if (words.length > 1) {
+        const shared = await intersectWordIds(supabase, words, 3000);
+        query = query.in("id", shared ?? [EMPTY_UUID]);
+      } else {
+        const filter = anyFieldFilter(f.q);
+        if (filter) query = query.or(filter);
+      }
+    }
+    if (f.category) {
+      if (UUID_REGEXP.test(f.category)) {
+        query = query.eq("category_id", f.category);
+      } else {
+        const ids = await resolveCategoryIds(supabase, f.category);
+        query = query.in("category_id", ids);
+      }
+    }
+    if (f.minPrice) query = query.gte("price", Number(f.minPrice));
+    if (f.maxPrice) query = query.lte("price", Number(f.maxPrice));
+    if (f.location) query = query.ilike("location", `%${f.location}%`);
+    if (f.condition) query = query.eq("condition", f.condition);
+    if (f.source) query = query.eq("source_type", f.source);
+
+    const { data, error } = await query.limit(cap);
+    if (error) return [];
+    const rows = (data ?? []) as { id: string; title: string; price: number | null }[];
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      price: Number(r.price ?? 0),
+    })).filter((r) => r.price > 0);
+  } catch {
+    return [];
+  }
+}

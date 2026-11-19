@@ -7,6 +7,7 @@ import { FavoriteButton } from "@/components/listings/FavoriteButton";
 import { ContactSellerButton, ShareButton, ReportButton } from "@/components/listings/ListingActions";
 import { Badge } from "@/components/ui/Badge";
 import { getListingBySlug, getSimilarListings } from "@/lib/listings";
+import { ExpandableText } from "@/components/listings/ExpandableText";
 import { getCategoryPath } from "@/lib/categories";
 import { CONDITION_LABELS, formatDate, formatPrice } from "@/lib/utils";
 import { createClient, getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -154,9 +155,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
           <div className="mt-4 rounded-xl border border-ink-200 bg-white p-5">
             <h2 className="mb-2 text-base font-bold text-ink-900">Popis</h2>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-ink-700">
-              {listing.description}
-            </p>
+            <ExpandableText text={listing.description} />
           </div>
         </div>
 

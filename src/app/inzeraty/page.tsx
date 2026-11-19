@@ -6,8 +6,10 @@ import { SortSelect } from "@/components/listings/SortSelect";
 import { Pagination } from "@/components/listings/Pagination";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ButtonLink } from "@/components/ui/Button";
-import { searchListings, type SortOption } from "@/lib/listings";
-import { getCategoryPath } from "@/lib/categories";
+import { searchListings, collectPricedSample, type SortOption } from "@/lib/listings";
+import { getCategoryPath, getCategoryNavChips, CATEGORY_EMOJI } from "@/lib/categories";
+import { computePriceStats, getPriceVerdict } from "@/lib/price-analysis";
+import { PriceAnalysis } from "@/components/listings/PriceAnalysis";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 
 interface PageProps {
@@ -41,8 +43,18 @@ export default async function ListingsPage({ searchParams }: PageProps) {
   };
 
   const profile = isSupabaseConfigured() ? await getCurrentProfile() : null;
-  const result = await searchListings(filters);
+  const [result, pricedSample] = await Promise.all([
+    searchListings(filters),
+    filters.q ? collectPricedSample(filters) : Promise.resolve([]),
+  ]);
+  const priceStats = computePriceStats(pricedSample.map((p) => p.price));
+  const priceVerdictById = new Map(
+    pricedSample
+      .map((p) => [p.id, getPriceVerdict(p.price, priceStats.median)] as const)
+      .filter(([, v]) => v !== null)
+  );
   const categoryPath = filters.category ? getCategoryPath(filters.category) : [];
+  const categoryChips = filters.category ? getCategoryNavChips(filters.category) : [];
 
   const activeParams: Record<string, string> = {};
   for (const [k, v] of Object.entries(sp)) {
@@ -63,6 +75,23 @@ export default async function ListingsPage({ searchParams }: PageProps) {
           </span>
         ))}
       </nav>
+
+      {categoryChips.length > 0 && (
+        <nav aria-label="Podkategórie" className="mb-4 flex flex-wrap gap-2">
+          {categoryChips.map((chip) => (
+            <a
+              key={chip.slug}
+              href={`/inzeraty?category=${chip.slug}`}
+              className="group inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3.5 py-1.5 text-sm font-medium text-ink-700 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 hover:shadow-sm"
+            >
+              <span aria-hidden className="text-sm">
+                {CATEGORY_EMOJI[chip.slug] ?? "📁"}
+              </span>
+              {chip.name}
+            </a>
+          ))}
+        </nav>
+      )}
 
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-xl font-bold text-ink-900 sm:text-2xl">
@@ -89,6 +118,7 @@ export default async function ListingsPage({ searchParams }: PageProps) {
         </div>
 
         <div className="min-w-0 flex-1">
+          {filters.q && <PriceAnalysis stats={priceStats} />}
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-ink-500">
               Strana {result.page}
@@ -104,7 +134,12 @@ export default async function ListingsPage({ searchParams }: PageProps) {
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {result.items.map((listing) => (
-                  <ListingCard key={listing.id} listing={listing} isLoggedIn={Boolean(profile)} />
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    isLoggedIn={Boolean(profile)}
+                    priceVerdict={filters.q ? priceVerdictById.get(listing.id) ?? undefined : undefined}
+                  />
                 ))}
               </div>
               <Pagination

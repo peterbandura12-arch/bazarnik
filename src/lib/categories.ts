@@ -248,3 +248,16 @@ export const EXTERNAL_SOURCES: Array<{ name: string; url: string }> = [
   { name: "Bazox.sk", url: "https://bazox.sk" },
   { name: "Predamkupim.sk", url: "https://www.predamkupim.sk" },
 ];
+
+/**
+ * Podkategórie zobrazované po kliknutí na kategóriu (ako na Alze).
+ * Pre hlavnú kategóriu vráti jej podkategórie, pre podkategóriu súrodencov.
+ */
+export function getCategoryNavChips(slug: string): CategoryNode[] {
+  const category = findCategory(slug);
+  if (!category) return [];
+  if (category.children.length > 0) return category.children;
+  const parent = CATEGORY_TREE.find((p) => p.children.some((c) => c.slug === slug));
+  if (!parent) return [];
+  return parent.children.filter((c) => c.slug !== slug);
+}
