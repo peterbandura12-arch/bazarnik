@@ -1,3 +1,5 @@
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
+
 export function isAiEnabled(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
@@ -29,7 +31,7 @@ export async function generateText({
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
