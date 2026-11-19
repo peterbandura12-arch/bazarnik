@@ -4,6 +4,8 @@ import { getAdapter } from "@/adapters/registry";
 import { upgradeBazosImageUrl } from "@/adapters/sources/bazos";
 import { computeFocalPoint } from "@/lib/image-focus";
 import { refineCategoryByTitle } from "@/lib/category-refine";
+import { aiClassifyCategories } from "@/lib/category-ai";
+import { isAiEnabled } from "@/lib/ai";
 import { slugify } from "@/lib/utils";
 
 /**
@@ -18,6 +20,7 @@ export interface SyncSourceSummary {
   archived: number;
   refined?: number;
   scanned?: number;
+  aiRefined?: number;
   errors: string[];
 }
 
@@ -182,6 +185,49 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         if (forRefine.length < REFINE_BATCH) break;
       }
 
+      // AI klasifikacia – inteligentne "okno" nad pravidlami. Kazdy beh checkne
+      // novych 50 inzeratov (nekategorizovani maju prioritu) a spravne presunie i take,
+      // ktore pravidlovy refine nechyt.
+      let aiRefined = 0;
+      if (isAiEnabled()) {
+        try {
+          const { data: aiPool } = await admin
+            .from("external_listings")
+            .select("id, title, description, category_id")
+            .eq("source_id", source.id)
+            .order("fetched_at", { ascending: false })
+            .limit(120);
+
+          const pool = (aiPool ?? []).map((row) => ({
+            id: row.id,
+            title: row.title,
+            description: row.description,
+            currentSlug: row.category_id ? slugById.get(row.category_id) ?? null : null,
+          }));
+
+          // priorita: 1) bez kategorie, 2) najnovsi
+          const ordered = [
+            ...pool.filter((p) => !p.currentSlug),
+            ...pool.filter((p) => p.currentSlug),
+          ].slice(0, 50);
+
+          const aiMap = await aiClassifyCategories(ordered);
+          for (const [id, slug] of aiMap) {
+            const item = ordered.find((p) => p.id === id);
+            if (!item) continue;
+            const betterId = categoryIds.get(slug);
+            if (!betterId || betterId === item.currentSlug) continue;
+            const { error: aiErr } = await admin
+              .from("external_listings")
+              .update({ category_id: betterId })
+              .eq("id", id);
+            if (!aiErr) aiRefined++;
+          }
+        } catch {
+          // AI klasifikacia nikdy nesmie spadnut synchronizaciu
+        }
+      }
+
       // Doplnenie kategórií inzerátom importovaným pred zavedením mapovania.
       const { data: uncategorized } = await admin
         .from("external_listings")
@@ -269,7 +315,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         .update({ last_synced_at: new Date().toISOString() })
         .eq("id", source.id);
 
-      summary.push({ source: source.slug, imported, updated, archived: stale ?? 0, refined, scanned, errors: [] });
+      summary.push({ source: source.slug, imported, updated, archived: stale ?? 0, refined, scanned, aiRefined, errors: [] });
     } catch (error) {
       summary.push({
         source: source.slug,
