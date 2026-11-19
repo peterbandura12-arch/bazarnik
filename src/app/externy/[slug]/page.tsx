@@ -71,6 +71,12 @@ export default async function ExternalListingPage({ params }: PageProps) {
                   src={listing.image_url}
                   alt={listing.title}
                   loading="lazy"
+                  style={{
+                    objectPosition:
+                      listing.focal_x != null && listing.focal_y != null
+                        ? `${(listing.focal_x * 100).toFixed(1)}% ${(listing.focal_y * 100).toFixed(1)}%`
+                        : "50% 50%",
+                  }}
                   className="h-full w-full object-cover"
                 />
               ) : (

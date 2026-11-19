@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { DemoBanner } from "@/components/layout/DemoBanner";
+import { ChatWidget } from "@/components/ai/ChatWidget";
+import { isAiEnabled } from "@/lib/ai";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import "./globals.css";
 
@@ -36,6 +38,7 @@ export default function RootLayout({
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        <ChatWidget enabled={isAiEnabled()} />
       </body>
     </html>
   );

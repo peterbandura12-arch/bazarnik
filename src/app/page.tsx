@@ -78,19 +78,39 @@ export default async function HomePage() {
   return (
     <div className="pb-16">
       {/* Hero s vyhľadávaním */}
-      <section className="border-b border-ink-200 bg-gradient-to-b from-brand-50 to-white">
-        <div className="container-page py-12 text-center sm:py-16">
-          <Badge tone="brand" className="mb-5">
+      <section className="relative overflow-hidden border-b border-ink-200 bg-gradient-to-b from-brand-50 via-white to-white">
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="animate-float-slow absolute -left-16 top-4 h-56 w-56 rounded-full bg-brand-300/30 blur-3xl" />
+          <div
+            className="animate-float-slow absolute -right-10 top-24 h-64 w-64 rounded-full bg-violet-300/30 blur-3xl"
+            style={{ animationDelay: "-3.5s" }}
+          />
+          <div
+            className="animate-float-slow absolute left-1/3 -top-16 h-48 w-48 rounded-full bg-accent-300/25 blur-3xl"
+            style={{ animationDelay: "-2s" }}
+          />
+        </div>
+        <div className="container-page relative py-12 text-center sm:py-16">
+          <Badge tone="brand" className="animate-fade-up mb-5">
             <Sparkles className="h-3 w-3" /> Bazoš · Bazar.sk · Vinted · jedno hľadanie
           </Badge>
-          <h1 className="mx-auto max-w-3xl text-3xl font-bold tracking-tight text-ink-900 sm:text-5xl">
-            Všetky slovenské bazáre. <span className="text-brand-600">Jedno hľadanie.</span>
+          <h1
+            className="animate-fade-up mx-auto max-w-3xl text-3xl font-bold tracking-tight text-ink-900 sm:text-5xl"
+            style={{ animationDelay: "0.1s" }}
+          >
+            Všetky slovenské bazáre. <span className="animate-gradient-x bg-gradient-to-r from-brand-600 via-violet-600 to-accent-500 bg-clip-text text-transparent">Jedno hľadanie.</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm text-ink-600 sm:text-base">
+          <p
+            className="animate-fade-up mx-auto mt-4 max-w-xl text-sm text-ink-600 sm:text-base"
+            style={{ animationDelay: "0.2s" }}
+          >
             Prehľadávame Bazoš, Bazar.sk, Vinted aj autobazáre naraz. Porovnáme ceny a ukážeme ti
             len to, čo je naozaj výhodné.
           </p>
-          <div className="mx-auto mt-7 max-w-2xl">
+          <div
+            className="animate-fade-up mx-auto mt-7 max-w-2xl"
+            style={{ animationDelay: "0.3s" }}
+          >
             <SearchBar />
           </div>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">

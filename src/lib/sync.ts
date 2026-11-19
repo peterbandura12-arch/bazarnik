@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdapter } from "@/adapters/registry";
+import { computeFocalPoint } from "@/lib/image-focus";
 import { slugify } from "@/lib/utils";
 
 /**
@@ -178,6 +179,35 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             .from("external_listings")
             .update({ location })
             .eq("id", row.id);
+        }
+      }
+
+      // Auto-focus: vypocet bodu zajmu fotiek pre nove inzeraty (max 40 na beh).
+      const { data: unfocused } = await admin
+        .from("external_listings")
+        .select("id, image_url")
+        .eq("source_id", source.id)
+        .is("focal_x", null)
+        .not("image_url", "is", null)
+        .limit(40);
+      for (const row of unfocused ?? []) {
+        try {
+          const imgRes = await fetch(row.image_url, {
+            cache: "no-store",
+            signal: AbortSignal.timeout(8000),
+          });
+          if (!imgRes.ok) continue;
+          const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+          if (imgBuffer.length > 3_000_000) continue;
+          const focal = await computeFocalPoint(imgBuffer);
+          if (focal) {
+            await admin
+              .from("external_listings")
+              .update({ focal_x: focal.x, focal_y: focal.y })
+              .eq("id", row.id);
+          }
+        } catch {
+          // fotka sa preskoci
         }
       }
 

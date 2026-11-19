@@ -28,6 +28,8 @@ export interface UnifiedListing {
   location: string | null;
   category_id: string | null;
   image_url: string | null;
+  focal_x?: number | null;
+  focal_y?: number | null;
   published_at: string;
   status: ListingStatus;
   source_id: string | null;

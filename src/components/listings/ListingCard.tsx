@@ -18,9 +18,13 @@ export function ListingCard({
   const href = buildListingUrl(listing);
   const isExternal = listing.source_type === "external";
   const categoryLabel = listing.category_id ? getCategoryLabel(listing.category_id) : undefined;
+  const objectPosition =
+    listing.focal_x != null && listing.focal_y != null
+      ? `${(listing.focal_x * 100).toFixed(1)}% ${(listing.focal_y * 100).toFixed(1)}%`
+      : "50% 50%";
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-ink-200 bg-white transition-shadow hover:shadow-md">
+    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-ink-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
       <Link href={href} className="relative block aspect-[4/3] overflow-hidden bg-ink-100">
         {listing.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -28,7 +32,8 @@ export function ListingCard({
             src={listing.image_url}
             alt={listing.title}
             loading="lazy"
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            style={{ objectPosition }}
+            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-ink-300">

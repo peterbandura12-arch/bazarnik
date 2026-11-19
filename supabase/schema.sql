@@ -151,7 +151,9 @@ create table public.listing_images (
   listing_id uuid not null references public.listings(id) on delete cascade,
   url text not null,
   sort_order int not null default 0,
-  is_primary boolean not null default false
+  is_primary boolean not null default false,
+  focal_x double precision,
+  focal_y double precision
 );
 
 create index idx_listing_images_listing on public.listing_images(listing_id, sort_order);
@@ -212,6 +214,8 @@ create table public.external_listings (
   fetched_at timestamptz not null default now(),
   is_available boolean not null default true,
   content_hash text,
+  focal_x double precision,
+  focal_y double precision,
   unique (source_id, external_id)
 );
 
@@ -390,6 +394,8 @@ select
   l.location,
   l.category_id,
   (select url from public.listing_images i where i.listing_id = l.id order by i.is_primary desc, i.sort_order limit 1) as image_url,
+  (select fi.focal_x from public.listing_images fi where fi.listing_id = l.id order by fi.is_primary desc, fi.sort_order limit 1) as focal_x,
+  (select fi.focal_y from public.listing_images fi where fi.listing_id = l.id order by fi.is_primary desc, fi.sort_order limit 1) as focal_y,
   l.created_at as published_at,
   l.status,
   null::uuid as source_id,
@@ -412,6 +418,8 @@ select
   e.location,
   e.category_id,
   e.image_url,
+  e.focal_x,
+  e.focal_y,
   coalesce(e.published_at, e.fetched_at) as published_at,
   case when e.is_available then 'active' else 'archived' end as status,
   e.source_id,

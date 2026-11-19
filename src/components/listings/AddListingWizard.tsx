@@ -18,6 +18,10 @@ import type { ListingCondition } from "@/types/database";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { createClient } from "@/lib/supabase/client";
+import {
+  ListingAiAssistant,
+  type AiListingDraft,
+} from "@/components/ai/ListingAiAssistant";
 
 const STEPS = ["Kategória", "Informácie", "Fotografie", "Kontakt", "Kontrola"] as const;
 
@@ -25,6 +29,61 @@ interface PhotoItem {
   file: File;
   preview: string;
   isPrimary: boolean;
+  focal?: { x: number; y: number };
+}
+
+/** Klientska analyza zaostrenia fotky (hrany + centroid), rovnaka logika ako na serveri v image-focus.ts */
+async function analyzePhotoFile(file: File): Promise<{ x: number; y: number } | null> {
+  try {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new window.Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error("load"));
+        el.src = url;
+      });
+      const w = 48;
+      const h = 36;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0, w, h);
+      const { data } = ctx.getImageData(0, 0, w, h);
+
+      const gray = new Float32Array(w * h);
+      for (let p = 0; p < w * h; p++) {
+        gray[p] = 0.299 * data[p * 4] + 0.587 * data[p * 4 + 1] + 0.114 * data[p * 4 + 2];
+      }
+
+      let total = 0;
+      let sumX = 0;
+      let sumY = 0;
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          const gx = gray[y * w + x + 1] - gray[y * w + x - 1];
+          const gy = gray[(y + 1) * w + x] - gray[(y - 1) * w + x];
+          const energy = Math.abs(gx) + Math.abs(gy);
+          total += energy;
+          sumX += energy * x;
+          sumY += energy * y;
+        }
+      }
+
+      const clamp = (v: number) => Math.min(0.9, Math.max(0.1, v));
+      if (total <= 0) return { x: 0.5, y: 0.45 };
+      return {
+        x: clamp(sumX / total / (w - 1)),
+        y: clamp((sumY / total / (h - 1)) * 0.75 + 0.42 * 0.25),
+      };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } catch {
+    return null;
+  }
 }
 
 export function AddListingWizard({ userEmail }: { userEmail: string }) {
@@ -80,6 +139,38 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
         isPrimary: photos.length === 0 && i === 0,
       }));
     setPhotos((p) => [...p, ...newPhotos].slice(0, 10));
+
+    for (const photo of newPhotos) {
+      void analyzePhotoFile(photo.file).then((focal) => {
+        if (!focal) return;
+        setPhotos((p) =>
+          p.map((ph) => (ph.preview === photo.preview ? { ...ph, focal } : ph))
+        );
+      });
+    }
+  }
+
+  function applyAiDraft(draft: AiListingDraft) {
+    setTitle(draft.title);
+    setDescription(draft.description);
+    setPrice(String(draft.price));
+    setCondition(draft.condition);
+    setBrand(draft.brand || "");
+    setModel(draft.model || "");
+    if (draft.location) setLocation(draft.location);
+    const parent = CATEGORY_TREE.find(
+      (p) =>
+        p.slug === draft.categorySlug ||
+        p.children.some((c) => c.slug === draft.categorySlug)
+    );
+    if (parent) {
+      setParentCategory(parent.slug);
+      setSubCategory(
+        draft.categorySlug === parent.slug
+          ? parent.children[0]?.slug ?? ""
+          : draft.categorySlug
+      );
+    }
   }
 
   function movePhoto(index: number, dir: -1 | 1) {
@@ -144,12 +235,25 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
 
       const { data: urlData } = supabase.storage.from("listing-images").getPublicUrl(path);
 
-      await supabase.from("listing_images").insert({
+      const imagePayload: Record<string, unknown> = {
         listing_id: listing.id,
         url: urlData.publicUrl,
         sort_order: i,
         is_primary: photo.isPrimary,
-      });
+      };
+      if (photo.focal) {
+        imagePayload.focal_x = photo.focal.x;
+        imagePayload.focal_y = photo.focal.y;
+      }
+
+      const { error: imageError } = await supabase
+        .from("listing_images")
+        .insert(imagePayload);
+      if (imageError && photo.focal) {
+        delete imagePayload.focal_x;
+        delete imagePayload.focal_y;
+        await supabase.from("listing_images").insert(imagePayload);
+      }
     }
 
     router.push(`/inzerat/${slug}`);
@@ -190,6 +294,7 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
         {step === 0 && (
           <div className="space-y-5">
             <h2 className="text-lg font-bold">Kategória inzerátu</h2>
+            <ListingAiAssistant onApply={applyAiDraft} />
             <Field label="Hlavná kategória" required>
               <Select
                 value={parentCategory}
@@ -293,6 +398,11 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
                         alt={`Náhľad fotografie ${i + 1}`}
                         fill
                         unoptimized
+                        style={{
+                          objectPosition: photo.focal
+                            ? `${(photo.focal.x * 100).toFixed(1)}% ${(photo.focal.y * 100).toFixed(1)}%`
+                            : undefined,
+                        }}
                         className="object-cover"
                       />
                       {photo.isPrimary && (
