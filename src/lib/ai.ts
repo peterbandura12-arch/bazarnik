@@ -1,5 +1,3 @@
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
-
 export function isAiEnabled(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
@@ -11,9 +9,14 @@ export interface GenerateResult {
   detail?: string;
 }
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
- * Zavola Google Gemini (gemini-2.0-flash) a vrati vygenerovany text.
+ * Zavola Google Gemini a vrati vygenerovany text.
  * Pri chybe vrati ok:false + detail (HTTP kod alebo popis) na debugovanie.
+ * Pri pretazeni (503/429) automaticky opakuje az 3-krat.
  */
 export async function generateText({
   system,
@@ -29,6 +32,26 @@ export async function generateText({
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, text: null, detail: "missing-key" };
 
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(1500 * attempt);
+
+    const result = await callGemini(apiKey, { system, prompt, json, maxTokens });
+    if (result.ok || (result.status !== 503 && result.status !== 429)) {
+      return result;
+    }
+  }
+  return { ok: false, text: null, detail: "503: preťažené – skúste to o chvíľu" };
+}
+
+async function callGemini(
+  apiKey: string,
+  {
+    system,
+    prompt,
+    json,
+    maxTokens,
+  }: { system: string; prompt: string; json: boolean; maxTokens: number }
+): Promise<GenerateResult> {
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -71,7 +94,12 @@ export async function generateText({
         .join("") ?? "";
     if (!text.trim()) {
       const reason = data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason;
-      return { ok: false, text: null, status: res.status, detail: `prazdna odpoved${reason ? ` (${String(reason)})` : ""}` };
+      return {
+        ok: false,
+        text: null,
+        status: res.status,
+        detail: `prazdna odpoved${reason ? ` (${String(reason)})` : ""}`,
+      };
     }
     return { ok: true, text: text.trim() };
   } catch (err) {
