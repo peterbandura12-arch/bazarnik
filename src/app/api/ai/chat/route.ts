@@ -5,7 +5,7 @@ import { searchListings } from "@/lib/listings";
 import { CATEGORY_TREE } from "@/lib/categories";
 import type { UnifiedListing } from "@/types/database";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),

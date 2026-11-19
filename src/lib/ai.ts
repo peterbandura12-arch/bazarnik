@@ -9,14 +9,21 @@ export interface GenerateResult {
   detail?: string;
 }
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
+const PRIMARY_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
+const MODEL_FALLBACKS = [
+  PRIMARY_MODEL,
+  "gemini-3.5-flash",
+  "gemini-flash-latest",
+  "gemini-3.5-flash-lite",
+].filter((m, i, arr) => arr.indexOf(m) === i);
 
+const ATTEMPT_TIMEOUT_MS = 40_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Zavola Google Gemini a vrati vygenerovany text.
- * Pri chybe vrati ok:false + detail (HTTP kod alebo popis) na debugovanie.
- * Pri pretazeni (503/429) automaticky opakuje az 3-krat.
+ * Skusa viacero flash modelov – ak je jeden pretazeny alebo nedostupny,
+ * automaticky prejde na dalsi v poradi.
  */
 export async function generateText({
   system,
@@ -32,18 +39,23 @@ export async function generateText({
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, text: null, detail: "missing-key" };
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await sleep(1500 * attempt);
+  let last: GenerateResult = { ok: false, text: null, detail: "no-attempt" };
 
-    const result = await callGemini(apiKey, { system, prompt, json, maxTokens });
-    if (result.ok || (result.status !== 503 && result.status !== 429)) {
-      return result;
-    }
+  for (let m = 0; m < MODEL_FALLBACKS.length; m++) {
+    const model = MODEL_FALLBACKS[m];
+    if (m > 0) await sleep(800);
+
+    const result = await callGemini(model, apiKey, { system, prompt, json, maxTokens });
+    if (result.ok) return result;
+
+    last = result;
+    if (result.status !== undefined && result.status !== 503 && result.status !== 429) continue;
   }
-  return { ok: false, text: null, detail: "503: preťažené – skúste to o chvíľu" };
+  return last;
 }
 
 async function callGemini(
+  model: string,
   apiKey: string,
   {
     system,
@@ -54,7 +66,7 @@ async function callGemini(
 ): Promise<GenerateResult> {
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,7 +80,7 @@ async function callGemini(
             ...(json ? { responseMimeType: "application/json" } : {}),
           },
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
       }
     );
 
@@ -104,10 +116,13 @@ async function callGemini(
     }
     return { ok: true, text: text.trim() };
   } catch (err) {
+    const msg = err instanceof Error ? err.message : "fetch-failed";
+    const isTimeout = msg.includes("timeout") || msg.includes("abort");
     return {
       ok: false,
       text: null,
-      detail: err instanceof Error ? `fetch: ${err.message}` : "fetch-failed",
+      status: isTimeout ? 504 : undefined,
+      detail: `fetch: ${msg}`,
     };
   }
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { generateText, isAiEnabled } from "@/lib/ai";
 import { CATEGORY_TREE } from "@/lib/categories";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const bodySchema = z.object({
   text: z.string().min(10, "Popíšte inzerát aspoň v jednej vete.").max(1000),
