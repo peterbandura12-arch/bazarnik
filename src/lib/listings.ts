@@ -182,7 +182,8 @@ async function intersectWordIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   words: string[],
   cap: number,
-  includeDescription = true
+  includeDescription = true,
+  skipAccessoryTitles = false
 ): Promise<string[] | null> {
   let shared: string[] | null = null;
   for (const word of words) {
@@ -201,7 +202,11 @@ async function intersectWordIds(
       model: string | null;
     }[];
     const matched = rows
-      .filter((row) => rowMatchesWord(row, word, includeDescription))
+      .filter(
+        (row) =>
+          !(skipAccessoryTitles && isAccessoryOnlyTitle(row.title)) &&
+          rowMatchesWord(row, word, includeDescription)
+      )
       .map((row) => row.id);
     if (matched.length === 0) return [];
     shared = shared === null ? matched : shared.filter((id) => matched.includes(id));
@@ -211,17 +216,38 @@ async function intersectWordIds(
 }
 
 
+const ACCESSORY_TOKEN = /^(kryt|krytty|krytk|obaly?|puzdro|puzdr|fond|folia|fólička?f?|foli|sklo|drziak|stojan|nabijacka?|nabij|kabel|adapter|bateria|baterka|naramok|remienok|diely|diel)/i;
+
+/** Zhodnotí, či je väčá vyhľadávanie začína príslušenstvo (kryt, obal, batéria…). */
+function isAccessoryQueryWord(word: string): boolean {
+  return tokenize(word).some((t) => ACCESSORY_TOKEN.test(t));
+}
+
+/**
+ * Vyfarbourje názvy, ktoré sú príslušenstvo a nie samotný produkt
+ * (napr. „kryt na iPhone 13“ pri hľadaní „iphone 13“). Inzerát s produktom,
+ * ku ktorému je príslušenstvo bonusom (napr. „iPhone 13 + kryt“), zostáva.
+ */
+function isAccessoryOnlyTitle(title: string): boolean {
+  const tokens = tokenize(title);
+  if (tokens.slice(0, 3).some((t) => ACCESSORY_TOKEN.test(t))) return true;
+  const norm = normalizeText(title);
+  return /vhodn[ye] na/.test(norm) || /\bdiely\b/.test(norm);
+}
+
 /**
  * Dvojúrovňová presnosť: najskôr hľadá len v názve, značke a modeli (model musí
- * sedieť presne). Ak nič nenájde, rozšíri hľadanie aj na popis inzerátu.
+ * sedieť presne, príslušenstvo je vylúčené). Ak nič nenájde, rozšíri hľadanie
+ * aj na popis inzerátu.
  */
 async function preciseSearchIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   words: string[]
 ): Promise<string[]> {
-  const strict = await intersectWordIds(supabase, words, 1000, false);
+  const accessoryQuery = words.some(isAccessoryQueryWord);
+  const strict = await intersectWordIds(supabase, words, 1000, false, !accessoryQuery);
   if (strict && strict.length > 0) return strict;
-  const extended = await intersectWordIds(supabase, words, 1000, true);
+  const extended = await intersectWordIds(supabase, words, 1000, true, false);
   return extended ?? [];
 }
 

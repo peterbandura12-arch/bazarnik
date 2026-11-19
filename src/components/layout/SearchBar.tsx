@@ -108,8 +108,12 @@ export function SearchBar({ initialQuery = "" }: { initialQuery?: string }) {
         </div>
         <button
           type="submit"
-          className="h-11 rounded-r-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700 sm:px-6"
+          className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-r-lg bg-gradient-to-r from-brand-600 to-violet-600 px-5 text-sm font-bold text-white shadow-md shadow-brand-600/25 transition-all duration-300 hover:from-brand-500 hover:to-violet-500 hover:shadow-lg hover:shadow-brand-600/40 active:scale-95 sm:px-7"
         >
+          <Search
+            className="h-4 w-4 transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110"
+            aria-hidden
+          />
           Hľadať
         </button>
       </form>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, Loader2, Send, Sparkles, X } from "lucide-react";
+import { Bot, Heart, Loader2, Plus, Send, Sparkles, X } from "lucide-react";
 import { buildListingUrl, cn, formatPrice } from "@/lib/utils";
 import { computePriceStats, getPriceVerdict } from "@/lib/price-analysis";
 import { useChat } from "@/components/ai/ChatProvider";
@@ -229,6 +229,25 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
           </div>
         </div>
       )}
+
+      <div className="flex flex-col items-end gap-2">
+        <Link
+          href="/pridat-inzerat"
+          title="Pridať inzerát"
+          aria-label="Pridať inzerát"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-accent-500 to-accent-600 text-white shadow-lg transition-transform duration-300 hover:scale-110 active:scale-95"
+        >
+          <Plus className="h-5 w-5" />
+        </Link>
+        <Link
+          href="/profil/oblubene"
+          title="Obľúbené položky"
+          aria-label="Obľúbené položky"
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-ink-200 bg-white text-rose-500 shadow-lg transition-transform duration-300 hover:scale-110 hover:text-rose-600 active:scale-95"
+        >
+          <Heart className="h-5 w-5" />
+        </Link>
+      </div>
 
       <button
         type="button"
