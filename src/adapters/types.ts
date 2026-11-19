@@ -50,6 +50,9 @@ export interface ExternalSourceAdapter {
 
   /** Stiahne a normalizuje aktuálne ponuky zo zdroja. */
   fetchListings(config: AdapterSourceConfig): Promise<NormalizedListing[]>;
+
+  /** Voliteľne odvodí slug kategórie Bazárnika z URL inzerátu – na doliečenie starých importov. */
+  getCategoryFromUrl?(url: string): string | null;
 }
 
 export class UnsupportedSourceError extends Error {

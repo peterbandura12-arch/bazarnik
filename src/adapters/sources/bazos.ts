@@ -181,4 +181,8 @@ export const bazosAdapter: ExternalSourceAdapter = {
 
     return listings;
   },
+
+  getCategoryFromUrl(url: string): string | null {
+    return mapBazosCategory(url);
+  },
 };

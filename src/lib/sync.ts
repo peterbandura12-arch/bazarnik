@@ -106,6 +106,24 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         }
       }
 
+      // Doplnenie kategórií inzerátom importovaným pred zavedením mapovania.
+      const { data: uncategorized } = await admin
+        .from("external_listings")
+        .select("id, url")
+        .eq("source_id", source.id)
+        .is("category_id", null)
+        .limit(500);
+      for (const row of uncategorized ?? []) {
+        const slug = adapter.getCategoryFromUrl?.(row.url) ?? null;
+        const categoryId = slug ? categoryIds.get(slug) ?? null : null;
+        if (categoryId) {
+          await admin
+            .from("external_listings")
+            .update({ category_id: categoryId })
+            .eq("id", row.id);
+        }
+      }
+
       await admin
         .from("external_sources")
         .update({ last_synced_at: new Date().toISOString() })
