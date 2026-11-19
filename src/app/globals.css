@@ -103,6 +103,30 @@ body {
   animation: gradient-x 6s ease infinite;
 }
 
+/* Plynule sa posuvajuci farebny prechod (podnadpisy, pasiky) */
+.bar-animated {
+  background-size: 200% 200%;
+  animation: gradient-x 4s ease infinite;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.86);
+    opacity: 0.6;
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-pop {
+  animation: pop 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
 /* Obsah je predvolene viditelný. Skrytie spustí iba JS (class `js` na <html>),
    takže pri chybe či blokovanom JavaScripte nikdy nezostane prázdna stránka. */
 .js .reveal {
@@ -133,7 +157,9 @@ body {
 
   .animate-float-slow,
   .animate-gradient-x,
-  .animate-fade-up {
+  .animate-fade-up,
+  .animate-pop,
+  .bar-animated {
     animation: none;
   }
 }

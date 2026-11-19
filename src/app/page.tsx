@@ -49,6 +49,22 @@ const TILE_EMOJI_STYLES = [
   "bg-fuchsia-100 ring-fuchsia-200",
 ];
 
+/** Farebne obtiahnutie kazdej dlazdice (border + zhlbenie farby pri hoveri). */
+const TILE_BORDER_STYLES = [
+  "border-brand-300/70 group-hover:border-brand-400",
+  "border-violet-300/70 group-hover:border-violet-400",
+  "border-sky-300/70 group-hover:border-sky-400",
+  "border-accent-300/70 group-hover:border-accent-400",
+  "border-emerald-300/70 group-hover:border-emerald-400",
+  "border-rose-300/70 group-hover:border-rose-400",
+  "border-amber-300/70 group-hover:border-amber-400",
+  "border-indigo-300/70 group-hover:border-indigo-400",
+  "border-teal-300/70 group-hover:border-teal-400",
+  "border-orange-300/70 group-hover:border-orange-400",
+  "border-cyan-300/70 group-hover:border-cyan-400",
+  "border-fuchsia-300/70 group-hover:border-fuchsia-400",
+];
+
 /** Farebne pastelove vyhladavacie chipy pod vyhladavanim. */
 const CHIP_STYLES = [
   "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100",
@@ -77,10 +93,12 @@ function SectionHeader({
   return (
     <div className="mb-4 flex items-end justify-between gap-4">
       <div>
-        <h2 className="text-lg font-bold text-ink-900 sm:text-xl">{title}</h2>
+        <h2 className="animate-gradient-x bg-gradient-to-r from-brand-700 via-violet-600 to-accent-600 bg-clip-text text-lg font-extrabold text-transparent sm:text-xl">
+          {title}
+        </h2>
         <div
           aria-hidden
-          className="mt-1.5 h-1 w-12 rounded-full bg-gradient-to-r from-brand-500 via-violet-400 to-accent-400"
+          className="bar-animated mt-1.5 h-1 w-16 rounded-full bg-gradient-to-r from-brand-500 via-violet-400 to-accent-400"
         />
         {subtitle && <p className="mt-1.5 text-sm text-ink-500">{subtitle}</p>}
       </div>
@@ -174,7 +192,8 @@ export default async function HomePage() {
             <Reveal key={cat.slug} delay={(index % 6) * 60}>
               <Link
                 href={`/inzeraty?category=${cat.slug}`}
-                className="group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-ink-200 bg-white p-5 text-center transition-all duration-300 hover:-translate-y-1.5 hover:border-transparent hover:shadow-xl hover:shadow-brand-200/40"
+                prefetch
+                className={`group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border-2 bg-white/90 p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-brand-200/30 ${TILE_BORDER_STYLES[index % TILE_BORDER_STYLES.length]}`}
               >
                 <div
                   aria-hidden
@@ -182,7 +201,7 @@ export default async function HomePage() {
                 />
                 <span
                   aria-hidden
-                  className={`relative flex h-14 w-14 items-center justify-center rounded-2xl text-3xl bg-gradient-to-br ring-1 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${TILE_EMOJI_STYLES[index % TILE_EMOJI_STYLES.length]} shadow-inner`}
+                  className={`relative flex h-14 w-14 items-center justify-center rounded-2xl text-3xl bg-gradient-to-br ring-1 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 group-hover:animate-pop ${TILE_EMOJI_STYLES[index % TILE_EMOJI_STYLES.length]} shadow-inner`}
                 >
                   {CATEGORY_EMOJI[cat.slug] ?? "📦"}
                 </span>
