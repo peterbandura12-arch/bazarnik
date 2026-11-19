@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, Heart, Loader2, Plus, Send, Sparkles, X } from "lucide-react";
+import { Bot, Heart, Loader2, LockKeyhole, Plus, Send, Sparkles, X } from "lucide-react";
 import { buildListingUrl, cn, formatPrice } from "@/lib/utils";
 import { computePriceStats, getPriceVerdict } from "@/lib/price-analysis";
 import { useChat } from "@/components/ai/ChatProvider";
@@ -100,7 +100,7 @@ function ChatResults({ items, onClose }: { items: UnifiedListing[]; onClose: () 
   );
 }
 
-export function ChatWidget({ enabled }: { enabled: boolean }) {
+export function ChatWidget({ enabled, isLoggedIn = false }: { enabled: boolean; isLoggedIn?: boolean }) {
   const { chatOpen: open, setChatOpen: setOpen } = useChat();
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState("");
@@ -161,7 +161,54 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
-      {open && (
+      {open && !isLoggedIn && (
+        <div className="flex w-[min(92vw,340px)] flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-2xl animate-fade-up">
+          <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-brand-600 to-brand-800 px-4 py-3 text-white">
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              <span className="text-sm font-bold">AI asistent Bazárnik</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Zavrieť chat"
+              className="rounded-full p-1 hover:bg-white/15"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex flex-col items-center p-6 text-center">
+            <span
+              aria-hidden
+              className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-violet-600 text-white shadow-lg"
+            >
+              <LockKeyhole className="h-7 w-7" />
+            </span>
+            <h3 className="mt-3 text-base font-bold text-ink-900">AI asistent je len pre prihlásených</h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-600">
+              Prihláste sa alebo si zdarma vytvorte účet – a AI vám hneď pomôže nájsť inzeráty,
+              poradiť s cenami a odpovie na všetko.
+            </p>
+            <div className="mt-5 flex w-full flex-col gap-2.5">
+              <Link
+                href="/prihlasenie"
+                className="flex h-11 w-full items-center justify-center rounded-lg bg-brand-600 text-sm font-semibold text-white transition hover:bg-brand-700"
+              >
+                Prihlásiť sa
+              </Link>
+              <Link
+                href="/registracia"
+                className="flex h-11 w-full items-center justify-center rounded-lg bg-gradient-to-r from-brand-600 to-violet-600 text-sm font-semibold text-white shadow-md shadow-brand-600/25 transition-all hover:from-brand-500 hover:to-violet-500"
+              >
+                Zaregistrovať sa
+              </Link>
+            </div>
+            <p className="mt-3 text-xs text-ink-400">Registrácia je zdarma · trvá minútu</p>
+          </div>
+        </div>
+      )}
+
+      {open && isLoggedIn && (
         <div className="flex h-[480px] max-h-[72vh] w-[min(92vw,380px)] flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-2xl animate-fade-up">
           <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-brand-600 to-brand-800 px-4 py-3 text-white">
             <div className="flex items-center gap-2">

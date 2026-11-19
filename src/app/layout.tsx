@@ -7,7 +7,7 @@ import { ChatWidget } from "@/components/ai/ChatWidget";
 import { ChatProvider } from "@/components/ai/ChatProvider";
 import { SyncRefresher } from "@/components/sync/SyncRefresher";
 import { isAiEnabled } from "@/lib/ai";
-import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -31,9 +31,19 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  let isLoggedIn = false;
+  if (isSupabaseConfigured()) {
+    try {
+      const profile = await getCurrentProfile();
+      isLoggedIn = Boolean(profile);
+    } catch {
+      isLoggedIn = false;
+    }
+  }
+
   return (
     <html lang="sk">
       <head>
@@ -52,7 +62,7 @@ export default function RootLayout({
           </HeaderScroll>
           <main className="flex-1">{children}</main>
           <Footer />
-          <ChatWidget enabled={isAiEnabled()} />
+          <ChatWidget enabled={isAiEnabled()} isLoggedIn={isLoggedIn} />
         </ChatProvider>
       </body>
     </html>

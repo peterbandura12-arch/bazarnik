@@ -8,6 +8,7 @@ import { ContactSellerButton, ShareButton, ReportButton } from "@/components/lis
 import { Badge } from "@/components/ui/Badge";
 import { getListingBySlug, getSimilarListings } from "@/lib/listings";
 import { ExpandableText } from "@/components/listings/ExpandableText";
+import { LoginGate } from "@/components/auth/LoginGate";
 import { getCategoryPath } from "@/lib/categories";
 import { CONDITION_LABELS, formatDate, formatPrice } from "@/lib/utils";
 import { createClient, getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -78,6 +79,37 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const similar = await getSimilarListings(listing);
   const categoryPath = listing.category_id ? getCategoryPath(listing.category_id) : [];
   const primaryImage = images.find((i) => i.is_primary) ?? images[0];
+
+  // Neprihlaseny navstevnik neuvidi cely inzerat – zobrazime prihlasovaciu branu.
+  if (!profile) {
+    return (
+      <div className="container-page py-6">
+        <nav aria-label="Navigácia" className="mb-4 text-sm text-ink-500">
+          <Link href="/" className="hover:text-brand-700">Domov</Link>
+          <span className="mx-1.5">/</span>
+          <span className="font-medium text-ink-800">{listing.title}</span>
+        </nav>
+        <LoginGate
+          next={`/inzerat/${listing.slug}`}
+          teaser={{
+            title: listing.title,
+            price: formatPrice(listing.price, listing.currency),
+            imageUrl: primaryImage?.url ?? listing.image_url ?? null,
+          }}
+        />
+        {similar.length > 0 && (
+          <section className="pt-10">
+            <h2 className="mb-4 text-lg font-bold text-ink-900">Podobné inzeráty</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {similar.map((l) => (
+                <ListingCard key={l.id} listing={l} isLoggedIn={false} />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
 
   const jsonLd = {
     "@context": "https://schema.org",

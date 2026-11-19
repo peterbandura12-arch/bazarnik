@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { getListingBySlug, getSimilarListings } from "@/lib/listings";
 import { ExpandableText } from "@/components/listings/ExpandableText";
 import { ListingCard } from "@/components/listings/ListingCard";
+import { LoginGate } from "@/components/auth/LoginGate";
 import { CONDITION_LABELS, formatDate, formatPrice } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { getCategoryPath } from "@/lib/categories";
@@ -36,6 +37,38 @@ export default async function ExternalListingPage({ params }: PageProps) {
 
   const profile = isSupabaseConfigured() ? await getCurrentProfile() : null;
   const similar = await getSimilarListings(listing);
+
+  // Neprihlaseny navstevnik neuvidi cely inzerat – zobrazime prihlasovaciu branu
+  // (breadcrumb, ukazka + podobne inzeraty ostavaju).
+  if (!profile) {
+    return (
+      <div className="container-page py-6">
+        <nav aria-label="Navigácia" className="mb-4 text-sm text-ink-500">
+          <Link href="/" className="hover:text-brand-700">Domov</Link>
+          <span className="mx-1.5">/</span>
+          <span className="font-medium text-ink-800">{listing.title}</span>
+        </nav>
+        <LoginGate
+          next={`/externy/${listing.slug}`}
+          teaser={{
+            title: listing.title,
+            price: formatPrice(listing.price, listing.currency),
+            imageUrl: listing.image_url,
+          }}
+        />
+        {similar.length > 0 && (
+          <section className="pt-10">
+            <h2 className="mb-4 text-lg font-bold text-ink-900">Podobné inzeráty</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {similar.map((l) => (
+                <ListingCard key={l.id} listing={l} isLoggedIn={false} />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
 
   let categoryPath: ReturnType<typeof getCategoryPath> = [];
   if (listing.category_id) {

@@ -1,15 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const next = params.get("next") ?? "/profil";
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,7 +63,7 @@ export default function RegisterPage() {
     }
 
     if (data.session) {
-      router.push("/profil");
+      router.push(next);
       router.refresh();
     } else {
       setSuccess(true);
@@ -69,7 +79,10 @@ export default function RegisterPage() {
             Na adresu <strong>{email}</strong> sme odoslali overovací e-mail. Potvrďte adresu
             kliknutím na odkaz v e-maile a potom sa prihláste.
           </p>
-          <Link href="/prihlasenie" className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline">
+          <Link
+            href={next !== "/profil" ? `/prihlasenie?next=${encodeURIComponent(next)}` : "/prihlasenie"}
+            className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline"
+          >
             Prejsť na prihlásenie
           </Link>
         </div>
