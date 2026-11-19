@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdapter } from "@/adapters/registry";
+import { upgradeBazosImageUrl } from "@/adapters/sources/bazos";
 import { computeFocalPoint } from "@/lib/image-focus";
 import { slugify } from "@/lib/utils";
 
@@ -178,6 +179,24 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           await admin
             .from("external_listings")
             .update({ location })
+            .eq("id", row.id);
+        }
+      }
+
+      // Backfill: male nahliady z RSS vymeň za plné verzie fotiek
+      // (a vynuť prepočet bodu záujmu na väčšom obrázku).
+      const { data: tinyImages } = await admin
+        .from("external_listings")
+        .select("id, image_url")
+        .or("image_url.ilike.%/img/1m/%,image_url.ilike.%/img/1t/%")
+        .limit(200);
+      for (const row of tinyImages ?? []) {
+        if (!row.image_url) continue;
+        const upgraded = upgradeBazosImageUrl(row.image_url);
+        if (upgraded !== row.image_url) {
+          await admin
+            .from("external_listings")
+            .update({ image_url: upgraded, focal_x: null, focal_y: null })
             .eq("id", row.id);
         }
       }

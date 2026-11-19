@@ -29,6 +29,12 @@ export function ChatWidget({ enabled }: { enabled: boolean }) {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
 
+  useEffect(() => {
+    const openChat = () => setOpen(true);
+    window.addEventListener("bazarnik:open-chat", openChat);
+    return () => window.removeEventListener("bazarnik:open-chat", openChat);
+  }, []);
+
   if (!enabled) return null;
 
   async function send() {

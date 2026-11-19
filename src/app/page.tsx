@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, Dog, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, ShieldCheck, Zap } from "lucide-react";
 import { SearchBar } from "@/components/layout/SearchBar";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { ButtonLink } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Reveal } from "@/components/ui/Reveal";
+import { OpenChatButton } from "@/components/ui/OpenChatButton";
 import { CATEGORY_EMOJI, CATEGORY_TREE } from "@/lib/categories";
 import { getLatestListings, getCategoryCounts, searchListings } from "@/lib/listings";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -16,20 +18,21 @@ const POPULAR_SEARCHES = [
   "Horský bicykel",
 ];
 
-const TILE_BG_CLASSES = [
-  "bg-brand-50",
-  "bg-violet-50",
-  "bg-sky-50",
-  "bg-accent-50",
-  "bg-emerald-50",
-  "bg-rose-50",
-  "bg-amber-50",
-  "bg-indigo-50",
-  "bg-teal-50",
-  "bg-orange-50",
-  "bg-cyan-50",
-  "bg-fuchsia-50",
+const TILE_GRADIENTS = [
+  "from-brand-200/60 via-brand-50/40 to-violet-100/50",
+  "from-violet-200/60 via-white to-sky-100/50",
+  "from-sky-200/60 via-white to-emerald-100/50",
+  "from-accent-200/60 via-white to-rose-100/50",
+  "from-emerald-200/60 via-white to-teal-100/50",
+  "from-rose-200/60 via-white to-fuchsia-100/50",
+  "from-amber-200/60 via-white to-orange-100/50",
+  "from-indigo-200/60 via-white to-brand-100/50",
+  "from-teal-200/60 via-white to-cyan-100/50",
+  "from-orange-200/60 via-white to-amber-100/50",
+  "from-cyan-200/60 via-white to-sky-100/50",
+  "from-fuchsia-200/60 via-white to-violet-100/50",
 ];
+
 
 function formatCount(count: number): string {
   return count.toLocaleString("sk-SK");
@@ -129,37 +132,42 @@ export default async function HomePage() {
       </section>
 
       {/* Čo hľadáš? – kategórie */}
-      <section className="container-page pt-10">
-        <SectionHeader
-          title="Čo hľadáš?"
-          subtitle="Vyber kategóriu a pozri si ponuky zo všetkých zdrojov"
-          href="/inzeraty"
-          linkLabel="Všetky inzeráty"
-        />
+      <section className="container-page pt-14">
+        <Reveal>
+          <SectionHeader
+            title="Čo hľadáš?"
+            subtitle="Vyber kategóriu a pozri si ponuky zo všetkých zdrojov"
+            href="/inzeraty"
+            linkLabel="Všetky inzeráty"
+          />
+        </Reveal>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {CATEGORY_TREE.map((cat, index) => (
-            <Link
-              key={cat.slug}
-              href={`/inzeraty?category=${cat.slug}`}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-ink-200 bg-white p-5 text-center transition-colors hover:border-brand-400 hover:shadow-sm"
-            >
-              <span
-                className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl transition-transform group-hover:scale-110 ${
-                  TILE_BG_CLASSES[index % TILE_BG_CLASSES.length]
-                }`}
-                aria-hidden
+            <Reveal key={cat.slug} delay={(index % 6) * 60}>
+              <Link
+                href={`/inzeraty?category=${cat.slug}`}
+                className="group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-ink-200 bg-white p-5 text-center transition-all duration-300 hover:-translate-y-1.5 hover:border-transparent hover:shadow-xl"
               >
-                {CATEGORY_EMOJI[cat.slug] ?? "📦"}
-              </span>
-              <span className="text-sm font-medium text-ink-800 group-hover:text-brand-700">
-                {cat.name}
-              </span>
-              {categoryCounts[cat.slug] !== undefined && (
-                <span className="text-xs text-ink-400">
-                  {formatCount(categoryCounts[cat.slug] ?? 0)} inzerátov
+                <div
+                  aria-hidden
+                  className={`absolute inset-0 bg-gradient-to-br ${TILE_GRADIENTS[index % TILE_GRADIENTS.length]} opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
+                />
+                <span
+                  aria-hidden
+                  className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-50 text-3xl shadow-inner ring-1 ring-ink-100 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6"
+                >
+                  {CATEGORY_EMOJI[cat.slug] ?? "📦"}
                 </span>
-              )}
-            </Link>
+                <span className="relative mt-3 text-sm font-semibold text-ink-900 transition-colors group-hover:text-brand-700">
+                  {cat.name}
+                </span>
+                {categoryCounts[cat.slug] !== undefined && (
+                  <span className="relative mt-1.5 rounded-full bg-ink-100 px-2.5 py-0.5 text-[11px] font-medium text-ink-500 transition-colors group-hover:bg-white/70">
+                    {formatCount(categoryCounts[cat.slug] ?? 0)} inzerátov
+                  </span>
+                )}
+              </Link>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -167,6 +175,7 @@ export default async function HomePage() {
       {/* Najlepšie ceny dnes */}
       {deals.items.length > 0 && (
         <section className="container-page pt-12">
+<Reveal>
           <SectionHeader
             title="Najlepšie ceny dnes"
             subtitle="Ponuky, ktorých cena je výrazne pod mediánom podobných inzerátov"
@@ -177,11 +186,13 @@ export default async function HomePage() {
               <ListingCard key={listing.id} listing={listing} isLoggedIn={isLoggedIn} />
             ))}
           </div>
-        </section>
+        </Reveal>
+      </section>
       )}
 
       {/* Čerstvo pridané */}
       <section className="container-page pt-12">
+<Reveal>
         <SectionHeader
           title="Čerstvo pridané"
           subtitle="Najnovšie inzeráty zo všetkých zdrojov"
@@ -198,27 +209,50 @@ export default async function HomePage() {
             Zatiaľ nie sú žiadne inzeráty. Buďte prvý, kto pridá svoju ponuku.
           </p>
         )}
+        </Reveal>
       </section>
 
-      {/* Strážny pes */}
-      <section className="container-page pt-12">
-        <div className="overflow-hidden rounded-2xl bg-ink-900 px-6 py-10 text-center sm:px-12">
-          <span className="flex mx-auto h-14 w-14 items-center justify-center rounded-2xl bg-ink-800 text-3xl" aria-hidden>
-            <Dog className="h-7 w-7 text-brand-300" />
-          </span>
-          <h2 className="mt-4 text-2xl font-bold text-white sm:text-3xl">Strážny pes</h2>
-          <p className="mt-2 text-sm font-medium text-brand-300 sm:text-base">
-            Nehľadaj. Nechaj psa, nech strieha novinky.
-          </p>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-ink-300">
-            Ulož si hľadanie a maximálnu cenu. Keď sa objaví nový inzerát, pošleme ti e-mail.
-          </p>
-          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <ButtonLink href="/profil/ulozene-vyhladavania" variant="accent" size="lg">
-              Vytvoriť strážneho psa
-            </ButtonLink>
+      {/* AI asistent */}
+      <section className="container-page pb-14 pt-12">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-violet-900 px-6 py-12 text-center sm:px-12">
+          <div
+            aria-hidden
+            className="animate-float-slow pointer-events-none absolute -left-10 top-6 h-40 w-40 rounded-full bg-violet-400/20 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="animate-float-slow pointer-events-none absolute -right-8 bottom-4 h-44 w-44 rounded-full bg-brand-400/20 blur-3xl"
+            style={{ animationDelay: "-3s" }}
+          />
+          <div className="relative">
+            <span
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur"
+              aria-hidden
+            >
+              <Sparkles className="h-7 w-7 text-brand-200" />
+            </span>
+            <h2 className="mt-4 text-2xl font-bold text-white sm:text-3xl">Nechaj AI, nech ti vyhľadá</h2>
+            <p className="mt-2 text-sm font-medium text-brand-200 sm:text-base">
+              Hľadanie inzerátov zaberá čas. AI asistent ich nájde za teba.
+            </p>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-white/70">
+              Napíšte mu, čo hľadáte – a hneď vám ukáže aktuálne ponuky s cenami.
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <OpenChatButton />
+              <ButtonLink
+                href="/inzeraty"
+                variant="outline"
+                className="border-white/30 bg-transparent text-white hover:bg-white/10"
+              >
+                Alebo si prezeraj ručne
+              </ButtonLink>
+            </div>
+            <p className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-white/50">
+              <span className="inline-flex items-center gap-1"><Zap className="h-3.5 w-3.5" /> Odpovie do sekúnd</span>
+              <span className="inline-flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Zadarmo</span>
+            </p>
           </div>
-          <p className="mt-3 text-xs text-ink-400">Zadarmo až 3 strážne psy</p>
         </div>
       </section>
     </div>

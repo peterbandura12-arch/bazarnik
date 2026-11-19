@@ -15,6 +15,15 @@ import type { ListingCondition } from "@/types/database";
  * stránky pod „RSS".
  */
 
+/**
+ * RSS obsahuje len malu nahliad (263x350, adresar /img/1m/ alebo /img/1t/).
+ * Plna verzia fotky ma ten isty nazor, len iny prefix (/img/1/) – upravime URL,
+ * aby karty aj detaily zobrazovali ostre fotky.
+ */
+export function upgradeBazosImageUrl(url: string): string {
+  return url.replace(/\/img\/(1m|1t)\//, "/img/1/");
+}
+
 const CONDITION_PATTERNS: Array<[RegExp, ListingCondition]> = [
   [/na\s*d(i|í)el(y|)/i, "na_diely"],
   [/ako\s*nov/i, "ako_nove"],
@@ -311,7 +320,7 @@ function parseFeed(xml: string, fallbackLocation: string | null = null, domain: 
     if (descriptionRaw) {
       const cdata = descriptionRaw.replace(/^<!\[CDATA\[|\]\]>$/g, "");
       const imgMatch = cdata.match(/<img[^>]*src=["']([^"']+)["']/i);
-      if (imgMatch) imageUrl = imgMatch[1];
+      if (imgMatch) imageUrl = upgradeBazosImageUrl(imgMatch[1]);
       const text = stripHtml(cdata.replace(/<img[^>]*>/gi, " "));
       description = text || null;
     }
