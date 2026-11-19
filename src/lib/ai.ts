@@ -64,10 +64,11 @@ async function callGemini(
           generationConfig: {
             temperature: 0.4,
             maxOutputTokens: maxTokens,
+            thinkingConfig: { thinkingLevel: "low" },
             ...(json ? { responseMimeType: "application/json" } : {}),
           },
         }),
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(30000),
       }
     );
 
