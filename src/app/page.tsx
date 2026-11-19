@@ -33,6 +33,31 @@ const TILE_GRADIENTS = [
   "from-fuchsia-200/60 via-white to-violet-100/50",
 ];
 
+/** Farebne pozadie emoji ikonky kazdej kategorie (trvale farebne dlazdice). */
+const TILE_EMOJI_STYLES = [
+  "bg-brand-100 ring-brand-200",
+  "bg-violet-100 ring-violet-200",
+  "bg-sky-100 ring-sky-200",
+  "bg-accent-100 ring-accent-200",
+  "bg-emerald-100 ring-emerald-200",
+  "bg-rose-100 ring-rose-200",
+  "bg-amber-100 ring-amber-200",
+  "bg-indigo-100 ring-indigo-200",
+  "bg-teal-100 ring-teal-200",
+  "bg-orange-100 ring-orange-200",
+  "bg-cyan-100 ring-cyan-200",
+  "bg-fuchsia-100 ring-fuchsia-200",
+];
+
+/** Farebne pastelove vyhladavacie chipy pod vyhladavanim. */
+const CHIP_STYLES = [
+  "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100",
+  "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100",
+  "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100",
+  "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+  "border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100",
+];
+
 
 function formatCount(count: number): string {
   return count.toLocaleString("sk-SK");
@@ -53,15 +78,19 @@ function SectionHeader({
     <div className="mb-4 flex items-end justify-between gap-4">
       <div>
         <h2 className="text-lg font-bold text-ink-900 sm:text-xl">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-sm text-ink-500">{subtitle}</p>}
+        <div
+          aria-hidden
+          className="mt-1.5 h-1 w-12 rounded-full bg-gradient-to-r from-brand-500 via-violet-400 to-accent-400"
+        />
+        {subtitle && <p className="mt-1.5 text-sm text-ink-500">{subtitle}</p>}
       </div>
       {href && (
         <Link
           href={href}
-          className="flex shrink-0 items-center gap-1 text-sm font-medium text-brand-600 hover:underline"
+          className="group flex shrink-0 items-center gap-1.5 rounded-full bg-brand-50 px-3.5 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-brand-200 transition-all duration-200 hover:bg-gradient-to-r hover:from-brand-600 hover:to-violet-600 hover:text-white hover:ring-transparent hover:shadow-md hover:shadow-brand-500/30"
         >
           {linkLabel ?? "Zobraziť všetko"}
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
         </Link>
       )}
     </div>
@@ -110,18 +139,18 @@ export default async function HomePage() {
             len to, čo je naozaj výhodné.
           </p>
           <div
-            className="animate-fade-up mx-auto mt-7 max-w-2xl"
+            className="animate-fade-up mx-auto mt-7 max-w-2xl rounded-xl bg-gradient-to-r from-brand-600 via-violet-500 to-accent-500 p-[2px] shadow-xl shadow-brand-500/25 transition-shadow duration-300 hover:shadow-2xl hover:shadow-brand-500/40"
             style={{ animationDelay: "0.3s" }}
           >
             <SearchBar />
           </div>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <span className="text-xs text-ink-400">Populárne:</span>
-            {POPULAR_SEARCHES.map((term) => (
+            <span className="text-xs font-medium text-ink-400">Populárne:</span>
+            {POPULAR_SEARCHES.map((term, index) => (
               <Link
                 key={term}
                 href={`/inzeraty?q=${encodeURIComponent(term)}`}
-                className="rounded-full border border-ink-200 bg-white px-3 py-1 text-xs text-ink-700 transition-colors hover:border-brand-400 hover:text-brand-700"
+                className={`rounded-full border px-3 py-1 text-xs font-medium shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow ${CHIP_STYLES[index % CHIP_STYLES.length]}`}
               >
                 {term}
               </Link>
@@ -145,15 +174,15 @@ export default async function HomePage() {
             <Reveal key={cat.slug} delay={(index % 6) * 60}>
               <Link
                 href={`/inzeraty?category=${cat.slug}`}
-                className="group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-ink-200 bg-white p-5 text-center transition-all duration-300 hover:-translate-y-1.5 hover:border-transparent hover:shadow-xl"
+                className="group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-ink-200 bg-white p-5 text-center transition-all duration-300 hover:-translate-y-1.5 hover:border-transparent hover:shadow-xl hover:shadow-brand-200/40"
               >
                 <div
                   aria-hidden
-                  className={`absolute inset-0 bg-gradient-to-br ${TILE_GRADIENTS[index % TILE_GRADIENTS.length]} opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
+                  className={`absolute inset-0 bg-gradient-to-br ${TILE_GRADIENTS[index % TILE_GRADIENTS.length]} opacity-50 transition-opacity duration-300 group-hover:opacity-100`}
                 />
                 <span
                   aria-hidden
-                  className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-50 text-3xl shadow-inner ring-1 ring-ink-100 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6"
+                  className={`relative flex h-14 w-14 items-center justify-center rounded-2xl text-3xl bg-gradient-to-br ring-1 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${TILE_EMOJI_STYLES[index % TILE_EMOJI_STYLES.length]} shadow-inner`}
                 >
                   {CATEGORY_EMOJI[cat.slug] ?? "📦"}
                 </span>
@@ -189,7 +218,8 @@ export default async function HomePage() {
 
       {/* AI asistent */}
       <section className="container-page pb-14 pt-12">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-violet-900 px-6 py-12 text-center sm:px-12">
+        <div className="relative overflow-hidden rounded-[1.4rem] bg-gradient-to-r from-brand-500 via-violet-500 to-accent-500 p-[2px] shadow-xl shadow-brand-300/30">
+        <div className="relative overflow-hidden rounded-[1.3rem] bg-gradient-to-br from-brand-700 via-brand-800 to-violet-900 px-6 py-12 text-center sm:px-12">
           <div
             aria-hidden
             className="animate-float-slow pointer-events-none absolute -left-10 top-6 h-40 w-40 rounded-full bg-violet-400/20 blur-3xl"
@@ -224,6 +254,7 @@ export default async function HomePage() {
               <span className="inline-flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Zadarmo</span>
             </p>
           </div>
+        </div>
         </div>
       </section>
     </div>
