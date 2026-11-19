@@ -251,6 +251,28 @@ async function preciseSearchIds(
   return extended ?? [];
 }
 
+/** Doplnenie slugu kategórie k inszeratom (karta potrebuje nazov podla slugu, DB vracia len id). */
+async function attachCategorySlugs(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  items: UnifiedListing[]
+): Promise<UnifiedListing[]> {
+  const ids = Array.from(
+    new Set(items.map((i) => i.category_id).filter((v): v is string => Boolean(v)))
+  );
+  if (ids.length === 0) return items;
+  try {
+    const { data: cats } = await supabase.from("categories").select("id, slug").in("id", ids);
+    const slugById = new Map((cats ?? []).map((c) => [c.id, c.slug] as const));
+    return items.map((item) =>
+      item.category_id
+        ? { ...item, category_slug: slugById.get(item.category_id) ?? null }
+        : item
+    );
+  } catch {
+    return items;
+  }
+}
+
 export async function searchListings(f: ListingFilters): Promise<SearchResult> {
   const page = Math.max(1, f.page ?? 1);
   const perPage = Math.min(48, Math.max(1, f.perPage ?? 24));
@@ -312,8 +334,10 @@ export async function searchListings(f: ListingFilters): Promise<SearchResult> {
     return { items: [], total: 0, page, perPage, isDemo: false };
   }
 
+  const items = await attachCategorySlugs(supabase, (data ?? []) as UnifiedListing[]);
+
   return {
-    items: (data ?? []) as UnifiedListing[],
+    items,
     total: count ?? 0,
     page,
     perPage,

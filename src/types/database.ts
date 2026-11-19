@@ -27,6 +27,7 @@ export interface UnifiedListing {
   model: string | null;
   location: string | null;
   category_id: string | null;
+  category_slug?: string | null;
   image_url: string | null;
   focal_x?: number | null;
   focal_y?: number | null;

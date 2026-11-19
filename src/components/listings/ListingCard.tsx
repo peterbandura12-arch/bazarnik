@@ -28,7 +28,9 @@ export function ListingCard({
 }) {
   const href = buildListingUrl(listing);
   const isExternal = listing.source_type === "external";
-  const categoryLabel = listing.category_id ? getCategoryLabel(listing.category_id) : undefined;
+  const categoryLabel = listing.category_slug
+    ? getCategoryLabel(listing.category_slug)
+    : undefined;
   const objectPosition =
     listing.focal_x != null && listing.focal_y != null
       ? `${(listing.focal_x * 100).toFixed(1)}% ${(listing.focal_y * 100).toFixed(1)}%`
