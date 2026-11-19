@@ -38,9 +38,9 @@ export function ListingCard({
   const isFree = listing.price === 0;
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-brand-200/40 bg-white shadow-sm shadow-brand-200/30 ring-1 ring-brand-100/60 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-brand-300 hover:shadow-xl hover:shadow-brand-200/40">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border-2 border-brand-300/60 bg-white shadow-md shadow-brand-200/30 ring-1 ring-brand-200/50 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-brand-500 hover:ring-brand-300 hover:shadow-xl hover:shadow-brand-300/40">
       {/* Farebný prechodový pásik na hornej strane karty – objaví sa pri hoveri */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[3px] bg-gradient-to-r from-brand-500 via-violet-400 to-accent-400 opacity-60 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-brand-500 via-violet-400 to-accent-400 opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
 
       <Link href={href} className="relative block aspect-[4/3] overflow-hidden bg-ink-100">
         {listing.image_url ? (

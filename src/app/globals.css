@@ -127,6 +127,19 @@ body {
   animation: pop 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
+/* Farebna hlavicka pri scrollovani - jemny trojfarebny prechod, farebny okraj a tienenie. */
+.hdr-scrolled header {
+  background-color: transparent;
+  background-image: linear-gradient(
+    to right,
+    rgb(236 250 251 / 0.97),
+    rgb(255 255 255 / 0.97) 45%,
+    rgb(255 246 237 / 0.95)
+  );
+  border-color: rgb(111 211 221 / 0.75);
+  box-shadow: 0 12px 30px -16px rgb(19 101 115 / 0.35);
+}
+
 /* Obsah je predvolene viditelný. Skrytie spustí iba JS (class `js` na <html>),
    takže pri chybe či blokovanom JavaScripte nikdy nezostane prázdna stránka. */
 .js .reveal {

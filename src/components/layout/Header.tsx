@@ -10,6 +10,22 @@ import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 import { CATEGORY_EMOJI, CATEGORY_TREE } from "@/lib/categories";
 import type { Profile } from "@/types/database";
 
+/** Pastelove farby chips kategorii v hlavicki. */
+const HEADER_CHIP_STYLES = [
+  "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100",
+  "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100",
+  "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100",
+  "border-accent-200 bg-accent-50 text-accent-700 hover:bg-accent-100",
+  "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+  "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+  "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+  "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
+  "border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100",
+  "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100",
+  "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100",
+  "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100",
+];
+
 export async function Header() {
   let profile: Profile | null = null;
   if (isSupabaseConfigured()) {
@@ -24,7 +40,7 @@ export async function Header() {
   const isAdmin = profile?.role === "admin";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur">
+    <header className="relative border-b border-ink-200 bg-white/95 backdrop-blur transition-all duration-300">
       <div className="container-page">
         <div className="flex h-16 items-center gap-3">
           <MobileNav isLoggedIn={isLoggedIn} isAdmin={isAdmin} />
@@ -77,11 +93,12 @@ export async function Header() {
 
         <div className="border-t border-ink-100">
           <div className="flex gap-1.5 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {CATEGORY_TREE.map((cat) => (
+            {CATEGORY_TREE.map((cat, index) => (
               <Link
                 key={cat.slug}
                 href={`/inzeraty?category=${cat.slug}`}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-brand-400 hover:text-brand-700"
+                prefetch
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5 ${HEADER_CHIP_STYLES[index % HEADER_CHIP_STYLES.length]}`}
               >
                 <span aria-hidden>{CATEGORY_EMOJI[cat.slug] ?? "📦"}</span>
                 {cat.name}

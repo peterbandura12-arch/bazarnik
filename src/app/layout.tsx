@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/layout/Header";
+import { HeaderScroll } from "@/components/layout/HeaderScroll";
 import { Footer } from "@/components/layout/Footer";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import { ChatWidget } from "@/components/ai/ChatWidget";
@@ -44,7 +45,9 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col">
         <ChatProvider>
           <DemoBanner visible={!isSupabaseConfigured()} />
-          <Header />
+          <HeaderScroll>
+            <Header />
+          </HeaderScroll>
           <main className="flex-1">{children}</main>
           <Footer />
           <ChatWidget enabled={isAiEnabled()} />
