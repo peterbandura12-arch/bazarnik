@@ -7,7 +7,10 @@ alter table public.external_listings add column if not exists focal_y double pre
 alter table public.listing_images add column if not exists focal_x double precision;
 alter table public.listing_images add column if not exists focal_y double precision;
 
-create or replace view public.v_listings_search as
+-- Pohlad je nutne vytvorit znova, lebo menime poradie stlpcov.
+drop view if exists public.v_listings_search;
+
+create view public.v_listings_search as
 select
   l.id,
   'own'::text as source_type,
