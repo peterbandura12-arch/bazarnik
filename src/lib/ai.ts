@@ -45,11 +45,15 @@ export async function generateText({
     const model = MODEL_FALLBACKS[m];
     if (m > 0) await sleep(800);
 
-    const result = await callGemini(model, apiKey, { system, prompt, json, maxTokens });
-    if (result.ok) return result;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await sleep(1200);
 
-    last = result;
-    if (result.status !== undefined && result.status !== 503 && result.status !== 429) continue;
+      const result = await callGemini(model, apiKey, { system, prompt, json, maxTokens });
+      if (result.ok) return result;
+
+      last = result;
+      if (result.status !== undefined && result.status !== 503 && result.status !== 429) break;
+    }
   }
   return last;
 }
