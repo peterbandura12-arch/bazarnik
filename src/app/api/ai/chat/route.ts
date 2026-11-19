@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateText, isAiEnabled } from "@/lib/ai";
 import { searchListings } from "@/lib/listings";
+import { safeSearchExternal, type ExternalResult } from "@/lib/meta-search";
 import { CATEGORY_TREE } from "@/lib/categories";
 import type { UnifiedListing } from "@/types/database";
 
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
       ok: true,
       reply: { type: "text", text: raw.slice(0, 2000) },
       items: [] as UnifiedListing[],
+      externalItems: [] as ExternalResult[],
     });
   }
 
@@ -154,17 +156,21 @@ export async function POST(request: Request) {
       }
     }
 
+    // Vysledky z dalsich portalov (bazar.sk, Aukro, Vinted…) – len ked su kluce nastavene.
+    const externalItems = await safeSearchExternal(base.q, 6);
+
     return NextResponse.json({
       ok: true,
       reply: {
         type: "search",
         text:
-          result.items.length > 0
+          result.items.length > 0 || externalItems.length > 0
             ? found.intro || "Tu sú najrelevantnejšie ponuky:"
             : "Nič som nenašiel – skúste jednoduchšie slová alebo širší rozsah ceny.",
         q: s.q,
       },
       items: result.items,
+      externalItems,
     });
   } catch {
     return NextResponse.json({

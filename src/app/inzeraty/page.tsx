@@ -10,6 +10,8 @@ import { searchListings, collectPricedSample, type SortOption } from "@/lib/list
 import { getCategoryPath, getCategoryNavChips, CATEGORY_EMOJI } from "@/lib/categories";
 import { computePriceStats, getPriceVerdict } from "@/lib/price-analysis";
 import { PriceAnalysis } from "@/components/listings/PriceAnalysis";
+import { safeSearchExternal } from "@/lib/meta-search";
+import { ExternalResultsSection } from "@/components/search/ExternalResultsSection";
 import { getCurrentProfile, isSupabaseConfigured } from "@/lib/supabase/server";
 
 interface PageProps {
@@ -43,9 +45,10 @@ export default async function ListingsPage({ searchParams }: PageProps) {
   };
 
   const profile = isSupabaseConfigured() ? await getCurrentProfile() : null;
-  const [result, pricedSample] = await Promise.all([
+  const [result, pricedSample, externalResults] = await Promise.all([
     searchListings(filters),
     filters.q ? collectPricedSample(filters) : Promise.resolve([]),
+    filters.q ? safeSearchExternal(filters.q, 6) : Promise.resolve([]),
   ]);
   const priceStats = computePriceStats(pricedSample.map((p) => p.price));
   const priceVerdictById = new Map(
@@ -160,6 +163,8 @@ export default async function ListingsPage({ searchParams }: PageProps) {
               }
             />
           )}
+
+          <ExternalResultsSection items={externalResults} />
         </div>
       </div>
     </div>

@@ -6,12 +6,55 @@ import { Bot, Heart, Loader2, LockKeyhole, Plus, Send, Sparkles, X } from "lucid
 import { buildListingUrl, cn, formatPrice } from "@/lib/utils";
 import { computePriceStats, getPriceVerdict } from "@/lib/price-analysis";
 import { useChat } from "@/components/ai/ChatProvider";
+import type { ExternalResult } from "@/lib/meta-search";
 import type { UnifiedListing } from "@/types/database";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   items?: UnifiedListing[];
+  externalItems?: ExternalResult[];
+}
+
+/** Zoznam vysledkov z ostatnych portalov v chate (klik -> povodny portal). */
+function ExternalChatResults({ items }: { items: ExternalResult[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className="px-0.5 text-[11px] font-bold uppercase tracking-wider text-ink-400">
+        Nájdené aj na iných portáloch
+      </p>
+      <ul className="space-y-1.5">
+        {items.map((item) => (
+          <li key={item.link}>
+            <a
+              href={item.link}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="flex items-center gap-2 rounded-lg border border-brand-200/60 bg-brand-50/40 p-2 text-sm transition hover:border-brand-400 hover:bg-brand-50"
+            >
+              {item.thumbnail ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.thumbnail}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded object-cover"
+                />
+              ) : (
+                <span className="h-10 w-10 shrink-0 rounded bg-brand-100" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="line-clamp-2 block font-medium text-ink-900">{item.title}</span>
+                <span className="text-xs text-brand-600">
+                  {item.displayLink.replace(/^www\./, "")}
+                </span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 const GREETING: ChatMessage = {
@@ -141,6 +184,7 @@ export function ChatWidget({ enabled, isLoggedIn = false }: { enabled: boolean; 
             role: "assistant",
             content: data.reply?.text ?? "",
             items: Array.isArray(data.items) ? data.items : [],
+            externalItems: Array.isArray(data.externalItems) ? data.externalItems : [],
           },
         ]);
       } else {
@@ -240,6 +284,9 @@ export function ChatWidget({ enabled, isLoggedIn = false }: { enabled: boolean; 
                   </p>
                   {m.items && m.items.length > 0 && (
                     <ChatResults items={m.items} onClose={() => setOpen(false)} />
+                  )}
+                  {m.externalItems && m.externalItems.length > 0 && (
+                    <ExternalChatResults items={m.externalItems} />
                   )}
                 </div>
               )
