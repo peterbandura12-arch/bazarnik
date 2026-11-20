@@ -6,17 +6,16 @@ import type {
 import { detectLocation } from "./bazos";
 
 /**
- * Zhliadac verejnych inzeratov z Bazar.sk – cita IBA verejne strikturovane
- * udaje (schema.org JSON-LD), ktore su nativne do strancy vlozene pre
- * vyhladavace a indexery. Neobchadza ziadne ochrany, nepouziva privatne API,
- * nevyzaduje prihlasenie a bezi v skromnom objeme (niekolko dopytov za
- * synchronizaciu s pauzami). Kedze Bazar.sk nema RSS ani verejne API, citanie
- * ich vlastnych strukturovanych dat je najmenej narocny sposob, akym
- * agregujeme len verejne dostupne inzeraty – najlepsi legalny kompromis.
- * Zdroj sa da kedykolvek vypnut v external_sources.
+ * Cítatel verejných inzerátov z Bazar.sk – číta IBA verejne štruktúrované
+ * údaje (schema.org JSON-LD), ktoré sú natively do stránky vložené pre
+ * vyhladávače a indexery. Neobchádza žiadne ochrany, nepoužíva súkromné API,
+ * nevyžaduje prihlásenie a beží v skromnom objeme (pár dopytov za
+ * synchronizáciu s pauzami). Bazar.sk nemá RSS ani verejné API, takže toto je
+ * najmenší možný spôsob, ako agregovať len verejne dostupné inzeráty.
+ * Zdroj sa dá kedykoľvek vypnúť v external_sources.
  */
 
-/** Mapovanie poddomen Bazar.sk na kategorie Bazarnika. */
+/** Mapovanie poddomén Bazar.sk na kategórie Bazárnika. */
 const SUBDOMAIN_CATEGORY: Record<string, string> = {
   auto: "osobne-automobily",
   motorky: "motorky",
@@ -39,7 +38,7 @@ const SUBDOMAIN_CATEGORY: Record<string, string> = {
   ostatne: "ostatne-inzeraty",
 };
 
-/** Prednastavene poddomeny, ktore sa citaju pri synchronizacii (strana 1). */
+/** Prednastavené poddomény, ktoré sa čítajú pri synchronizácii (strana 1). */
 const DEFAULT_SUBDOMAINS = [
   "mobily",
   "elektro",
@@ -57,7 +56,7 @@ const DEFAULT_SUBDOMAINS = [
   "ostatne",
 ];
 
-/** Strana 2 len pre najvacsie kategorie (dost objemu na fair stranke). */
+/** Strana 2 len pre najväčšie kategórie (dost objemu, ešte vždy skromné). */
 const SECOND_PAGE_SUBDOMAINS = new Set(["mobily", "elektro", "pocitace", "auto", "dom"]);
 
 const PAUSE_MS = 700;
@@ -106,7 +105,7 @@ interface SchemaProduct {
  * ktoré zamietne klasické JSON.parse. Nahradíme ich medzerou – štruktúra
  * JSON zostane zachovaná a parsovanie prejde.
  */
-function parseJsonLdBlocks(html: string): SchemaProduct[] {
+function parseJsonLdProducts(html: string): SchemaProduct[] {
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)];
   for (const block of blocks) {
     const sanitized = block[1].replace(/[\u0000-\u001f]/g, " ");
@@ -132,53 +131,76 @@ function subdomainOf(url: string): string | null {
   return url.match(/^https?:\/\/([a-z0-9-]+)\.bazar\.sk\//i)?.[1]?.toLowerCase() ?? null;
 }
 
-async function fetchPage(url: string): Promise<string | null> {
+type PageResult = { html: string; status: number } | { html: null; status: number | null; reason?: string };
+
+async function fetchPage(url: string): Promise<PageResult> {
   try {
     const res = await fetch(url, { headers: HEADERS, cache: "no-store", signal: AbortSignal.timeout(20_000) });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
+    if (!res.ok) return { html: null, status: res.status };
+    return { html: await res.text(), status: 200 };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message.slice(0, 80) : "chyba dopytu";
+    return { html: null, status: null, reason: msg };
   }
+}
+
+function statusLabel(result: PageResult): string {
+  if (result.html !== null) return "OK";
+  if (result.status !== null) return `HTTP ${result.status}`;
+  return `chyba: ${result.reason ?? "neznáma"}`;
 }
 
 export const bazarskAdapter: ExternalSourceAdapter = {
   slug: "bazarsk",
-  name: "Bazar.sk (verejn\u00e9 \u0161trukt\u00farovan\u00e9 d\u00e1ta)",
+  name: "Bazar.sk (verejné štruktúrované dáta)",
   websiteUrl: "https://www.bazar.sk",
   accessDescription:
-    "Cita výhradne verejné štruktúrované dáta (schema.org JSON-LD), ktoré Bazar.sk natívne vkladá do svojich stránok pre vyľadávače. Bez súrekého API, bez obchádzania ochrán, v skromnom objeme s pauzami medzi dopytmi. Ideálne by bol oficiálny dátový feed ako má Bazoš – po dorozumení s prevádzkovateľom sa adaptér jednoducho prepne na neho.",
+    "Číta výhradne verejné štruktúrované dáta (schema.org JSON-LD), ktoré Bazar.sk natívne vkladá do svojich stránok pre vyhľadávače. Bez súkromného API, bez obchádzania ochrán, v skromnom objeme s pauzami medzi dopytmi. Ideálne by bol oficiálny dátový feed ako má Bazoš – po dorozumení s prevádzkovateľom sa adaptér jednoducho prepne na neho.",
 
   async fetchListings(config: AdapterSourceConfig): Promise<NormalizedListing[]> {
     if (config.feedUrl) {
-      // Kedze feedUrl nastavena, citaju sa konkretne stranky zoznamu (niekedy podla filtra).
+      // Keď je feedUrl nastavená, čítajú sa konkrétne stránky zoznamov (možné aj podľa filtra).
       const pages = config.feedUrl
         .split(/[\n,]+/)
         .map((u) => u.trim())
         .filter((u) => /^https?:\/\/[a-z0-9.-]*bazar\.sk/.test(u));
       const seen = new Map<string, NormalizedListing>();
+      const failures: string[] = [];
       for (const page of pages) {
-        const html = await fetchPage(page);
-        if (!html) continue;
-        for (const item of parseAndNormalize(html)) {
+        const result = await fetchPage(page);
+        if (result.html === null) {
+          failures.push(`${page} → ${statusLabel(result)}`);
+          continue;
+        }
+        for (const item of parseAndNormalize(result.html)) {
           if (!seen.has(item.externalId)) seen.set(item.externalId, item);
         }
         await sleep(PAUSE_MS);
+      }
+      if (seen.size === 0 && failures.length > 0) {
+        throw new Error(`Bazar.sk nevrátil dáta: ${failures.slice(0, 3).join("; ")}`);
       }
       return [...seen.values()];
     }
 
     const byId = new Map<string, NormalizedListing>();
+    const failures: string[] = [];
     for (const sub of DEFAULT_SUBDOMAINS) {
       for (const page of [1, ...(SECOND_PAGE_SUBDOMAINS.has(sub) ? [2] : [])]) {
-        const url = `https://${sub}.bazar.sk/${page > 1 ? `?p[page]=${page}` : ""}`;
-        const html = await fetchPage(url);
-        if (!html) continue;
-        for (const item of parseAndNormalize(html)) {
+        const url = page > 1 ? `https://${sub}.bazar.sk/?p[page]=${page}` : `https://${sub}.bazar.sk/`;
+        const result = await fetchPage(url);
+        if (result.html === null) {
+          failures.push(`${sub} s${page} → ${statusLabel(result)}`);
+          continue;
+        }
+        for (const item of parseAndNormalize(result.html)) {
           if (!byId.has(item.externalId)) byId.set(item.externalId, item);
         }
         await sleep(PAUSE_MS);
       }
+    }
+    if (byId.size === 0 && failures.length > 0) {
+      throw new Error(`Bazar.sk nevrátil dáta: ${failures.slice(0, 3).join("; ")}`);
     }
     return [...byId.values()];
   },
@@ -194,13 +216,14 @@ export const bazarskAdapter: ExternalSourceAdapter = {
 };
 
 function parseAndNormalize(html: string): NormalizedListing[] {
-  const products = parseJsonLdBlocks(html);
+  const products = parseJsonLdProducts(html);
   const listings: NormalizedListing[] = [];
 
   for (const product of products) {
     const url = typeof product.offers?.url === "string" ? product.offers.url : null;
-    const externalId = product.offers?.serialNumber != null ? String(product.offers.serialNumber) : null;
-    if (!url || !externalId) continue;
+    const externalIdRaw = product.offers?.serialNumber;
+    const externalId = externalIdRaw != null ? String(externalIdRaw) : null;
+    if (!url || !externalId || !externalId.trim()) continue;
 
     const title = decodeEntities(String(product.name)).replace(/\s+/g, " ").trim();
     if (!title) continue;
@@ -210,25 +233,24 @@ function parseAndNormalize(html: string): NormalizedListing[] {
       : null;
 
     const priceRaw = product.offers?.price;
-    const price = typeof priceRaw !== "undefined" && priceRaw !== null ? Number(priceRaw) : null;
-    const imageUrl = Array.isArray(product.image) ? (product.image[0] ?? null) : (product.image ?? null);
+    const numericPrice = typeof priceRaw !== "undefined" && priceRaw !== null ? Number(priceRaw) : null;
+    const price = numericPrice !== null && Number.isFinite(numericPrice) ? numericPrice : null;
 
-    const sub = subdomainOf(url);
+    const imageUrl = Array.isArray(product.image) ? (product.image[0] ?? null) : (product.image ?? null);
+    const currencyOffered = product.offers?.priceCurrency;
+
     listings.push({
-      externalId,
+      externalId: externalId.trim(),
       url,
       title,
       description,
-      price: price != null && Number.isFinite(price) ? price : null,
-      currency:
-        product.offers?.priceCurrency && product.offers.priceCurrency !== "EUR"
-          ? product.offers.priceCurrency
-          : "EUR",
+      price,
+      currency: currencyOffered && currencyOffered !== "EUR" ? currencyOffered : "EUR",
       condition: null,
       brand: null,
       model: null,
-      location: detectLocation(`${title ?? ""} ${description ?? ""}`) ?? null,
-      categorySlug: sub ? SUBDOMAIN_CATEGORY[sub] ?? null : null,
+      location: detectLocation(`${title} ${description ?? ""}`),
+      categorySlug: subdomainOf(url) ? SUBDOMAIN_CATEGORY[subdomainOf(url) as string] ?? null : null,
       imageUrl: typeof imageUrl === "string" && imageUrl.startsWith("http") ? imageUrl : null,
       publishedAt: null,
     });
