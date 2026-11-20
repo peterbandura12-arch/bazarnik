@@ -216,7 +216,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           const ordered = [
             ...pool.filter((p) => !p.currentSlug),
             ...pool.filter((p) => p.currentSlug),
-          ].slice(0, 100);
+          ].slice(0, 60);
           aiChecked = ordered.length;
 
           // VIZUALNA klasifikacia – AI dostane nazov AJ fotku inzerata a rozhodne podla oboch.

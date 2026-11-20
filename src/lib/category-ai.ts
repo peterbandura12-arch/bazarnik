@@ -162,8 +162,8 @@ export async function aiClassifyCategories(items: AIClassifyInput[]): Promise<AI
 type InlineImage = { mime_type: string; data: string };
 
 const VISION_BATCH = 10;
-const MAX_VISION_BATCHES = 10; // max ~100 inzerátov s fotkou na jedno prebehnutie
-const IMAGE_TIMEOUT_MS = 10_000;
+const MAX_VISION_BATCHES = 5; // max ~50 inzerátov s fotkou na jedno prebehnutie
+const IMAGE_TIMEOUT_MS = 6_000;
 const IMAGE_MAX_BYTES = 4_000_000;
 
 const VISION_SYSTEM_PROMPT =
@@ -216,7 +216,7 @@ export async function aiClassifyCategoriesVision(
   if (!isAiEnabled() || items.length === 0) return { map: result, sample: null };
 
   // Stiahni fotky paralelne (max 8 naraz, každá max 10 s).
-  const images = await mapLimited(items, 8, (it) =>
+  const images = await mapLimited(items, 12, (it) =>
     it.imageUrl ? fetchImageAsJpeg(it.imageUrl) : Promise.resolve<InlineImage | null>(null)
   );
 

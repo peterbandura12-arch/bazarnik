@@ -254,7 +254,7 @@ async function callGemini(
             ...(json ? { responseMimeType: "application/json" } : {}),
           },
         }),
-        signal: AbortSignal.timeout(images.length > 0 ? ATTEMPT_TIMEOUT_MS * 2 : ATTEMPT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(images.length > 0 ? ATTEMPT_TIMEOUT_MS : ATTEMPT_TIMEOUT_MS),
       }
     );
 
