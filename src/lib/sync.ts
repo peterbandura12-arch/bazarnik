@@ -4,7 +4,7 @@ import { getAdapter } from "@/adapters/registry";
 import { upgradeBazosImageUrl } from "@/adapters/sources/bazos";
 import { computeFocalPoint } from "@/lib/image-focus";
 import { refineCategoryByTitle } from "@/lib/category-refine";
-import { aiClassifyCategories } from "@/lib/category-ai";
+import { aiClassifyCategoriesVision } from "@/lib/category-ai";
 import { isAiEnabled } from "@/lib/ai";
 import { slugify } from "@/lib/utils";
 
@@ -199,7 +199,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         try {
           const { data: aiPool } = await admin
             .from("external_listings")
-            .select("id, title, description, category_id")
+            .select("id, title, description, category_id, image_url")
             .eq("source_id", source.id)
             .order("fetched_at", { ascending: false })
             .limit(300);
@@ -209,6 +209,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             title: row.title,
             description: row.description,
             currentSlug: row.category_id ? slugById.get(row.category_id) ?? null : null,
+            imageUrl: row.image_url ?? null,
           }));
 
           // priorita: 1) bez kategorie, 2) najnovsi
@@ -218,7 +219,8 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           ].slice(0, 100);
           aiChecked = ordered.length;
 
-          const aiOut = await aiClassifyCategories(ordered);
+          // VIZUALNA klasifikacia – AI dostane nazov AJ fotku inzerata a rozhodne podla oboch.
+          const aiOut = await aiClassifyCategoriesVision(ordered);
           const aiMap = aiOut.map;
           aiProposed = aiMap.size;
           if (aiProposed === 0) aiSample = aiOut.sample;

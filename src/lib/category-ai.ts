@@ -1,5 +1,6 @@
-import { generateFastJson, isAiEnabled } from "@/lib/ai";
+import { generateFastJson, generateFastJsonVision, isAiEnabled } from "@/lib/ai";
 import { CATEGORY_TREE } from "@/lib/categories";
+import sharp from "sharp";
 
 /**
  * AI klasifikator kategorii – Gemini analyzuje nazov (a cast opisu) inzeratu
@@ -150,4 +151,127 @@ export async function aiClassifyCategories(items: AIClassifyInput[]): Promise<AI
   }
 
   return { map: result, sample: null };
+}
+
+// ---------------------------------------------------------------------------
+// VIZUÁLNA klasifikácia – AI dostane NÁZOV aj FOTKU inzerátu a rozhodne podľa
+// oboch. Fotka sa stiahne, zmenší na miniatúru (sharp) a pošle modelu ako
+// inline obrázok. Inzeráty, ktorých fotka sa nepodarilo stiahnuť, sa klasifikujú
+// len podľa textu – vizuálny režim nikdy nesmie spomaliť ani zastaviť sync.
+
+type InlineImage = { mime_type: string; data: string };
+
+const VISION_BATCH = 10;
+const MAX_VISION_BATCHES = 10; // max ~100 inzerátov s fotkou na jedno prebehnutie
+const IMAGE_TIMEOUT_MS = 10_000;
+const IMAGE_MAX_BYTES = 4_000_000;
+
+const VISION_SYSTEM_PROMPT =
+  SYSTEM_PROMPT +
+  " Dostaneš k dispozícii aj FOTKU každého inzeráta – rozhoduj podľa toho, čo je " +
+  "NA FOTKE v popredí (ak je na fotke celé auto, je to osobné auto; ak sú na fotke " +
+  "len disky alebo diel, nie je to auto; ak je na fotke hra pre konzolu, je to videogry). " +
+  "Fotka má väčšiu váhu ako text, ak si odporujú.";
+
+async function fetchImageAsJpeg(url: string): Promise<InlineImage | null> {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; BazarnikBot/1.0)" },
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 100 || buf.length > IMAGE_MAX_BYTES) return null;
+    const jpeg = await sharp(buf)
+      .resize({ width: 224, height: 224, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 60 })
+      .toBuffer();
+    return { mime_type: "image/jpeg", data: jpeg.toString("base64") };
+  } catch {
+    return null;
+  }
+}
+
+async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const idx = next++;
+      results[idx] = await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+export interface AIClassifyVisionInput extends AIClassifyInput {
+  imageUrl?: string | null;
+}
+
+export async function aiClassifyCategoriesVision(
+  items: AIClassifyVisionInput[]
+): Promise<AIClassifyOutput> {
+  const result = new Map<string, string>();
+  if (!isAiEnabled() || items.length === 0) return { map: result, sample: null };
+
+  // Stiahni fotky paralelne (max 8 naraz, každá max 10 s).
+  const images = await mapLimited(items, 8, (it) =>
+    it.imageUrl ? fetchImageAsJpeg(it.imageUrl) : Promise.resolve<InlineImage | null>(null)
+  );
+
+  const maxBatches = Math.min(Math.ceil(items.length / VISION_BATCH), MAX_VISION_BATCHES);
+  let lastSample: string | null = null;
+
+  for (let b = 0; b < maxBatches; b++) {
+    const batch = items.slice(b * VISION_BATCH, (b + 1) * VISION_BATCH);
+    const batchImages = images.slice(b * VISION_BATCH, (b + 1) * VISION_BATCH);
+    if (batch.length === 0) break;
+
+    const lines: string[] = [];
+    const inlineImages: InlineImage[] = [];
+    batch.forEach((it, idx) => {
+      const desc = it.description ? ` | ${it.description.slice(0, 120).replace(/\s+/g, " ")}` : "";
+      const cur = it.currentSlug ? ` (súčasná: ${it.currentSlug})` : "";
+      const hasImg = Boolean(batchImages[idx]);
+      lines.push(`${idx + 1}. ${it.title.slice(0, 140)}${desc}${cur}${hasImg ? "" : " (fotka nie je dostupná)"}`);
+      if (batchImages[idx]) {
+        inlineImages.push(batchImages[idx]!);
+      }
+    });
+
+    // Po textovom zozname pošleme fotky s číslami v poradí – 1 fotka = 1 inzerát.
+    const prompt =
+      `Kategórie (používaj IBA tieto slugy, presne takto): ${[...VALID_SLUGS].join(", ")}\n\n` +
+      `Inzeráty (číslo na začiatku riadku je index inzerátu; fotky nasledujú V ROVNAKOM PORADÍ ako čísla):\n${lines.join("\n")}\n\n` +
+      `Pre KAŽDÝ inzerát zo zoznamu vráť jednu položku. ` +
+      `Odpovedz VÝHRADNE JSON v tvare: {"klasifikacie":[{"i":1,"k":"slug"}]} ` +
+      `kde "i" je index inzerátu (číslo) a "k" je slug kategórie.`;
+
+    const gen = await generateFastJsonVision({
+      system: VISION_SYSTEM_PROMPT,
+      prompt,
+      images: inlineImages,
+      maxTokens: MAX_TOKENS,
+    });
+    if (!gen.ok || !gen.text) {
+      lastSample = gen.detail ?? null;
+      continue; // vision dávka nebola – skúsime ďalšiu, nespadne celý beh
+    }
+
+    const list = extractEntries(gen.text);
+    if (!list) {
+      lastSample = gen.text.slice(0, 400);
+      continue;
+    }
+
+    for (const entry of list) {
+      const id = parseIndex(entry.i ?? entry.id, batch);
+      const slug = normalizeSlug(entry.k ?? entry.kategoria);
+      if (!id || !slug) continue;
+      result.set(id, slug);
+    }
+  }
+
+  return { map: result, sample: lastSample };
 }

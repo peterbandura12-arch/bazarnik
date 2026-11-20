@@ -177,6 +177,41 @@ export async function generateText({
   return last;
 }
 
+/**
+ * Rychle JSON volanie s FOTKAMI (multimodalne) – celkom ako generateFastJson,
+ * ale do requestu prida inline obrazky (base64). Sluzi na AI klasifikaciu
+ * kategorii podla fotky inzeratu, nie len podla nazvu.
+ */
+export async function generateFastJsonVision({
+  system,
+  prompt,
+  images = [],
+  maxTokens = 400,
+}: {
+  system: string;
+  prompt: string;
+  images?: Array<{ mime_type: string; data: string }>;
+  maxTokens?: number;
+}): Promise<GenerateResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { ok: false, text: null, detail: "missing-key" };
+
+  let last: GenerateResult = { ok: false, text: null, detail: "no-attempt" };
+  for (let m = 0; m < FAST_FALLBACKS.length; m++) {
+    if (m > 0) await sleep(250);
+    const result = await callGemini(FAST_FALLBACKS[m], apiKey, {
+      system,
+      prompt,
+      json: true,
+      maxTokens,
+      images,
+    });
+    if (result.ok) return result;
+    last = result;
+  }
+  return last;
+}
+
 async function callGemini(
   model: string,
   apiKey: string,
@@ -185,7 +220,14 @@ async function callGemini(
     prompt,
     json,
     maxTokens,
-  }: { system: string; prompt: string; json: boolean; maxTokens: number }
+    images = [],
+  }: {
+    system: string;
+    prompt: string;
+    json: boolean;
+    maxTokens: number;
+    images?: Array<{ mime_type: string; data: string }>;
+  }
 ): Promise<GenerateResult> {
   try {
     const res = await fetch(
@@ -195,7 +237,16 @@ async function callGemini(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          contents: [
+            {
+              role: "user",
+              parts: (
+                images.length > 0
+                  ? [{ text: prompt }, ...images.map((im) => ({ inline_data: im }))]
+                  : [{ text: prompt }]
+              ),
+            },
+          ],
           generationConfig: {
             temperature: 0.4,
             maxOutputTokens: maxTokens,
@@ -203,7 +254,7 @@ async function callGemini(
             ...(json ? { responseMimeType: "application/json" } : {}),
           },
         }),
-        signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(images.length > 0 ? ATTEMPT_TIMEOUT_MS * 2 : ATTEMPT_TIMEOUT_MS),
       }
     );
 
