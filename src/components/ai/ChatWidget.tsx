@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Bot, Heart, Loader2, LockKeyhole, Plus, Send, Sparkles, X } from "lucide-react";
 import { buildListingUrl, cn, formatPrice } from "@/lib/utils";
 import { computePriceStats, getPriceVerdict } from "@/lib/price-analysis";
@@ -96,18 +97,21 @@ function ChatResults({ items, onClose }: { items: UnifiedListing[]; onClose: () 
                 className="flex items-center gap-2 rounded-lg border border-ink-200 bg-white p-2 text-sm transition hover:border-brand-300 hover:bg-brand-50"
               >
                 {item.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.image_url}
-                    alt=""
-                    className="h-10 w-10 shrink-0 rounded object-cover"
-                    style={{
-                      objectPosition:
-                        item.focal_x != null && item.focal_y != null
-                          ? `${(item.focal_x * 100).toFixed(0)}% ${(item.focal_y * 100).toFixed(0)}%`
-                          : "50% 50%",
-                    }}
-                  />
+                  <span className="relative h-10 w-10 shrink-0">
+                    <Image
+                      src={item.image_url}
+                      alt=""
+                      fill
+                      sizes="40px"
+                      className="rounded object-cover"
+                      style={{
+                        objectPosition:
+                          item.focal_x != null && item.focal_y != null
+                            ? `${(item.focal_x * 100).toFixed(0)}% ${(item.focal_y * 100).toFixed(0)}%`
+                            : "50% 50%",
+                      }}
+                    />
+                  </span>
                 ) : (
                   <span className="h-10 w-10 shrink-0 rounded bg-ink-100" />
                 )}

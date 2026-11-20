@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     .map((m) => `${m.role === "user" ? "Používateľ" : "Asistent"}: ${m.content}`)
     .join("\n");
 
-  const gen = await generateText({ system: SYSTEM_PROMPT, prompt: history, maxTokens: 900 });
+  const gen = await generateText({ system: SYSTEM_PROMPT, prompt: history, maxTokens: 700 });
   if (!gen.ok || !gen.text) {
     return NextResponse.json(
       { ok: false, error: `AI odpoveď sa nepodarilo získať (${gen.detail ?? "neznáma chyba"}).` },

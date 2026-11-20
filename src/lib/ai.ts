@@ -17,7 +17,9 @@ const MODEL_FALLBACKS = [
   "gemini-3.5-flash-lite",
 ].filter((m, i, arr) => arr.indexOf(m) === i);
 
-const ATTEMPT_TIMEOUT_MS = 30_000;
+// Kratší timeout na pokus = rýchlejšie prejdenie na záložný model, keď je
+// jeden pretlačený – používateľá menej čaká.
+const ATTEMPT_TIMEOUT_MS = 15_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -43,10 +45,10 @@ export async function generateText({
 
   for (let m = 0; m < MODEL_FALLBACKS.length; m++) {
     const model = MODEL_FALLBACKS[m];
-    if (m > 0) await sleep(800);
+    if (m > 0) await sleep(250);
 
     for (let attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) await sleep(1200);
+      if (attempt > 0) await sleep(450);
 
       const result = await callGemini(model, apiKey, { system, prompt, json, maxTokens });
       if (result.ok) return result;

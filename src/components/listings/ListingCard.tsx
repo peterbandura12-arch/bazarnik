@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ImageOff, MapPin, ExternalLink } from "lucide-react";
 import type { UnifiedListing } from "@/types/database";
 import { cn, formatPrice, formatRelativeDate, CONDITION_LABELS, buildListingUrl } from "@/lib/utils";
@@ -44,13 +45,14 @@ export function ListingCard({
 
       <Link href={href} className="relative block aspect-[4/3] overflow-hidden bg-ink-100">
         {listing.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={listing.image_url}
             alt={listing.title}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             loading="lazy"
             style={{ objectPosition }}
-            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 to-accent-50 text-ink-300">

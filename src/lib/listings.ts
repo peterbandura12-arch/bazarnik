@@ -186,28 +186,39 @@ async function intersectWordIds(
   skipAccessoryTitles = false
 ): Promise<string[] | null> {
   let shared: string[] | null = null;
-  for (const word of words) {
-    const filter = anyFieldFilter(word);
-    if (!filter) continue;
-    const { data } = await supabase
-      .from("v_listings_search")
-      .select("id, title, description, brand, model")
-      .or(filter)
-      .limit(cap);
-    const rows = (data ?? []) as {
-      id: string;
-      title: string;
-      description: string | null;
-      brand: string | null;
-      model: string | null;
-    }[];
-    const matched = rows
-      .filter(
-        (row) =>
-          !(skipAccessoryTitles && isAccessoryOnlyTitle(row.title)) &&
-          rowMatchesWord(row, word, includeDescription)
-      )
-      .map((row) => row.id);
+
+  // Všetky slová sa hľadajú NARAZ (paralelne) – jeden roundtrip k DB namiesto
+  // N dotazov za sebou, čo zásadne zrýchli odozvu viacslovných hľadaní.
+  const active = words
+    .map((word) => ({ word, filter: anyFieldFilter(word) }))
+    .filter((w): w is { word: string; filter: string } => w.filter !== "");
+  if (active.length === 0) return null;
+
+  const results = await Promise.all(
+    active.map(async ({ word, filter }) => {
+      const { data } = await supabase
+        .from("v_listings_search")
+        .select("id, title, description, brand, model")
+        .or(filter)
+        .limit(cap);
+      const rows = (data ?? []) as {
+        id: string;
+        title: string;
+        description: string | null;
+        brand: string | null;
+        model: string | null;
+      }[];
+      return rows
+        .filter(
+          (row) =>
+            !(skipAccessoryTitles && isAccessoryOnlyTitle(row.title)) &&
+            rowMatchesWord(row, word, includeDescription)
+        )
+        .map((row) => row.id);
+    })
+  );
+
+  for (const matched of results) {
     if (matched.length === 0) return [];
     shared = shared === null ? matched : shared.filter((id) => matched.includes(id));
     if (shared.length === 0) return [];
@@ -401,7 +412,8 @@ const POPULAR_KEYWORDS = [
 
 /** Inzeraty, ktore v nazve obsahuju casto hladane vyrazy (popularne produkty). */
 export async function getPopularListings(perPage = 8): Promise<SearchResult> {
-  const pool = await searchListings({ sort: "najnovsie", perPage: 600 });
+  // 300 namiesto 600 – ľahší dotaz na DB = rýchlejšia homepage.
+  const pool = await searchListings({ sort: "najnovsie", perPage: 300 });
 
   // Najatraktívnejšie inzeráty s nejlepšou kvalitou fotiek:
   // 1) povinná fotka + cena + poloha,
