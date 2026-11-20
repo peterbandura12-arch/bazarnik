@@ -90,6 +90,8 @@ async function handle(request: Request) {
   let errors = 0;
 
   for (const item of items) {
+    // Inzeráty bez fotky sa nezobrazujú – preskočíme ich.
+    if (!item.imageUrl) continue;
     const contentHash = createHash("sha256")
       .update(`${item.title}|${item.price ?? ""}|${item.url}`)
       .digest("hex");

@@ -341,5 +341,12 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
     }
   }
 
+  // Inzeráty bez fotky sa nezobrazujú – hromadne ich vyradíme.
+  await admin
+    .from("external_listings")
+    .update({ is_available: false })
+    .eq("is_available", true)
+    .or("image_url.is.null,image_url.eq.");
+
   return { ok: true, summary };
 }

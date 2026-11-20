@@ -36,6 +36,150 @@ const SUBDOMAIN_CATEGORY = {
   ostatne: "ostatne-inzeraty",
 };
 
+/**
+ * Mapovanie konkretnych podkategori Bazar.sk (slug z URL karty) na presne
+ * kategorie Bazarnika – inzerat ide priamo spravne, AI to len doladi.
+ */
+const SUBCATEGORY_CATEGORY = {
+  "fotoaparaty": "fotoaparaty",
+  "doplnky-foto-kamery": "fotograficke-vybavenie",
+  "sim-karty": "prislusenstvo-elektronika",
+  "tablety": "tablety",
+  "wifi-sietove-prvky": "prislusenstvo-elektronika",
+  "tlaciarne": "prislusenstvo-elektronika",
+  "zdroje-zalozne-zdroje": "prislusenstvo-elektronika",
+  "dj-technika": "audio-technika",
+  "reproduktory": "audio-technika",
+  "reproduktory-repro-sustavy": "audio-technika",
+  "zvukova-technika": "audio-technika",
+  "radia-magnetofony-a-hifi": "audio-technika",
+  "mp3-prehravace": "audio-technika",
+  "klavesy": "hobby-a-volny-cas",
+  "gitary": "hobby-a-volny-cas",
+  "slacikove-nastroje": "hobby-a-volny-cas",
+  "kable-a-konektory": "nabijacky-a-kable",
+  "kable-a-redukcie": "nabijacky-a-kable",
+  "notebooky": "notebooky",
+  "herne-konzoly": "herne-konzoly",
+  "chladnicky": "domace-spotrebice",
+  "digestory": "domace-spotrebice",
+  "pracky": "domace-spotrebice",
+  "umyvacky-riadu": "domace-spotrebice",
+  "zehlicky": "domace-spotrebice",
+  "ostatne-elektro-spotrebice": "domace-spotrebice",
+  "fitness-kulturistika": "fitness",
+  "cyklistika": "cyklistika",
+  "futbal": "loptove-sporty",
+  "korcule": "sport-a-outdoor",
+  "lyzovanie": "lyzovanie",
+  "kemping": "kemping",
+  "altanky-stany-domceky": "kemping",
+  "turistika-a-horolezectvo": "turistika",
+  "rybolov": "polovnictvo-a-rybarstvo",
+  "polovnictvo": "polovnictvo-a-rybarstvo",
+  "stvorkolky": "stvorkolky",
+  "skutre": "motocykle",
+  "enduro": "motocykle",
+  "chopper": "motocykle",
+  "supersport": "motocykle",
+  "tourist": "motocykle",
+  "naked": "motocykle",
+  "motokary": "stvorkolky",
+  "motory": "motodiely",
+  "bmw": "osobne-automobily",
+  "fiat": "osobne-automobily",
+  "ford": "osobne-automobily",
+  "jeep": "osobne-automobily",
+  "mercedes": "osobne-automobily",
+  "mitsubishi": "osobne-automobily",
+  "seat": "osobne-automobily",
+  "skoda": "osobne-automobily",
+  "subaru": "osobne-automobily",
+  "volkswagen": "osobne-automobily",
+  "volvo": "osobne-automobily",
+  "historicke": "osobne-automobily",
+  "traktory": "naradie",
+  "polnohospodarske-stroje": "naradie",
+  "stavebne-stroje": "naradie",
+  "drevoobrabacie-stroje": "naradie",
+  "sijacie-stroje": "naradie",
+  "naradie": "naradie",
+  "zahradne-naradie": "zahradna-technika",
+  "psy-a-steniatka": "psy",
+  "macky-a-maciatka": "macki",
+  "rybicky": "akvaristika",
+  "terarijne": "teraristika",
+  "hydina": "zvierata",
+  "zajace-a-kraliky": "zvierata",
+  "vtaky": "vtaky",
+  "krmivo": "chovatelske-potreby",
+  "chovatelske-potreby": "chovatelske-potreby",
+  "bytove-doplnky": "dekoracie",
+  "police-kniznice": "nabytok",
+  "komody": "nabytok",
+  "stoly": "nabytok",
+  "obyvacky": "nabytok",
+  "sedacky-sedacie-supravy": "nabytok",
+  "postele-matrace": "nabytok",
+  "kancelarsky-nabytok": "nabytok",
+  "ostatny-nabytok": "nabytok",
+  "nabytok-na-mieru": "nabytok",
+  "detsky-nabytok": "deti-a-hracky",
+  "hracky": "deti-a-hracky",
+  "kociky": "deti-a-hracky",
+  "kolisky-hojdacky": "deti-a-hracky",
+  "trojkolky": "deti-a-hracky",
+  "zavinovacky-a-fusaky": "deti-a-hracky",
+  "bundy": "oblecenie-a-moda",
+  "bundy-kabaty-a-kombinezy": "oblecenie-a-moda",
+  "kabaty": "oblecenie-a-moda",
+  "ciapky-saly-a-rukavice": "oblecenie-a-moda",
+  "nohavice-a-kratasy": "oblecenie-a-moda",
+  "saty": "oblecenie-a-moda",
+  "sukne": "oblecenie-a-moda",
+  "svetre-a-rolaky": "oblecenie-a-moda",
+  "tricka": "oblecenie-a-moda",
+  "damska-obuv": "oblecenie-a-moda",
+  "panska-obuv": "oblecenie-a-moda",
+  "detska-obuv": "oblecenie-a-moda",
+  "kabelky": "oblecenie-a-moda",
+  "ostatne-modne-doplnky": "oblecenie-a-moda",
+  "ostatne-oblecenie": "oblecenie-a-moda",
+  "ostatne-detske-oblecenie": "oblecenie-a-moda",
+  "spolocenske-saty": "oblecenie-a-moda",
+  "svadobne-saty": "oblecenie-a-moda",
+  "teplakove-supravy": "oblecenie-a-moda",
+  "romany": "knihy",
+  "poezia": "knihy",
+  "ucebnice-zs-a-ss": "knihy",
+  "detske-knihy": "knihy",
+  "odborna-literatura": "knihy",
+  "cudzojazycna-literatura": "knihy",
+  "cestopisy": "knihy",
+  "encyklopedie": "knihy",
+  "chovatelska-literatura": "knihy",
+  "ostatne-knihy": "knihy",
+  "skolske-potreby": "knihy",
+  "cd-dvd-lp-mc-hudba": "filmy-a-hudba",
+  "vstupenky-a-listky": "vstupenky",
+  "vstupenky-na-koncerty": "vstupenky",
+  "zivotopisy": "pracovne-ponuky",
+  "ploty-brany": "stavebny-material",
+  "obklady-a-dlazby": "stavebny-material",
+  "stavebne-drevo-rezivo": "stavebny-material",
+  "nadrze-sachty-zumpy": "stavebny-material",
+  "voda-odpady": "stavebny-material",
+  "solarne-systemy-fotovoltaika": "vykurovanie",
+  "palivove-drevo-pelety-brikety": "dom-a-zahrada",
+  "stiepacky-dreva": "dom-a-zahrada",
+  "zahradne-grily-krby": "zahradny-nabytok",
+  "zahradny-nabytok": "zahradny-nabytok",
+  "bazeny-doplnky": "bazeny",
+  "zlavove-kupony": "ostatne-inzeraty",
+  "potraviny": "ruzne-predmety",
+  "ostatne-inzeraty": "ostatne-inzeraty",
+};
+
 const DEFAULT_SUBDOMAINS = [
   "mobily", "elektro", "pocitace", "auto", "dom", "nabytok", "deti",
   "oblecenie", "sport", "hudba", "knihy", "zvierata", "stroje", "ostatne",
@@ -86,6 +230,25 @@ function parseJsonLdProducts(html) {
   return [];
 }
 
+/**
+ * Z verejnych kariet inzeratov (hmr-primary) vyzvedne lokalitu a podkategoriu.
+ */
+function extractCardInfo(html) {
+  const info = new Map();
+  const starts = [...html.matchAll(/<div class="hmr-primary" data-id="(\d+)">/gi)].map(
+    (m) => ({ id: m[1], index: m.index ?? 0 })
+  );
+  for (let i = 0; i < starts.length; i++) {
+    const from = starts[i].index;
+    const to = i + 1 < starts.length ? starts[i + 1].index : Math.min(html.length, from + 40000);
+    const chunk = html.slice(from, to);
+    const location = chunk.match(/<span class="location"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/i)?.[1]?.trim() ?? null;
+    const subcategory = chunk.match(/<a class="category" href="[^"]*\/([a-z0-9-]+)\/"/i)?.[1] ?? null;
+    info.set(starts[i].id, { location: location ? decodeEntities(location) : null, subcategory });
+  }
+  return info;
+}
+
 function subdomainOf(url) {
   const m = url.match(/^https?:\/\/([a-z0-9-]+)\.bazar\.sk\//i);
   return m ? m[1].toLowerCase() : null;
@@ -107,6 +270,7 @@ async function fetchPage(url) {
 
 function parseAndNormalize(html) {
   const products = parseJsonLdProducts(html);
+  const cards = extractCardInfo(html);
   const listings = [];
   for (const p of products) {
     const url = typeof p.offers?.url === "string" ? p.offers.url : null;
@@ -120,10 +284,21 @@ function parseAndNormalize(html) {
       ? decodeEntities(String(p.description)).replace(/\s+/g, " ").trim() || null
       : null;
 
+    // Inzeraty bez fotky sa nezobrazuju - preskocime ich.
+    const img = Array.isArray(p.image) ? p.image[0] ?? null : p.image ?? null;
+    if (typeof img !== "string" || !img.startsWith("http")) continue;
+
     const numeric = p.offers?.price != null ? Number(p.offers.price) : null;
     const price = numeric !== null && Number.isFinite(numeric) ? numeric : null;
-    const img = Array.isArray(p.image) ? p.image[0] ?? null : p.image ?? null;
+
+    const card = cards.get(externalId);
     const sub = subdomainOf(url);
+    const subcategory = card?.subcategory ?? null;
+    const categorySlug = subcategory
+      ? SUBCATEGORY_CATEGORY[subcategory] ?? (sub ? SUBDOMAIN_CATEGORY[sub] ?? null : null)
+      : sub
+        ? SUBDOMAIN_CATEGORY[sub] ?? null
+        : null;
 
     listings.push({
       externalId,
@@ -132,9 +307,9 @@ function parseAndNormalize(html) {
       description,
       price,
       currency: "EUR",
-      location: null,
-      categorySlug: sub ? SUBDOMAIN_CATEGORY[sub] ?? null : null,
-      imageUrl: typeof img === "string" && img.startsWith("http") ? img : null,
+      location: (card?.location && decodeEntities(card.location)) ?? null,
+      categorySlug,
+      imageUrl: img,
     });
   }
   return listings;

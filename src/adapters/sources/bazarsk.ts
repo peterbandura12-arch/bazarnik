@@ -7,15 +7,13 @@ import { detectLocation } from "./bazos";
 
 /**
  * Cítatel verejných inzerátov z Bazar.sk – číta IBA verejne štruktúrované
- * údaje (schema.org JSON-LD), ktoré sú natively do stránky vložené pre
- * vyhladávače a indexery. Neobchádza žiadne ochrany, nepoužíva súkromné API,
- * nevyžaduje prihlásenie a beží v skromnom objeme (pár dopytov za
- * synchronizáciu s pauzami). Bazar.sk nemá RSS ani verejné API, takže toto je
- * najmenší možný spôsob, ako agregovať len verejne dostupné inzeráty.
- * Zdroj sa dá kedykoľvek vypnúť v external_sources.
+ * údaje (schema.org JSON-LD) a verejné karty inzerátov (lokalita,
+ * podkategória), bez obchádzania ochrán a bez súkromného API, v skromnom
+ * objeme s pauzami. Bazar.sk nemá RSS ani verejné API; inzeráty bez fotky sa
+ * neprijímajú. Zdroj sa dá kedykoľvek vypnúť v external_sources.
  */
 
-/** Mapovanie poddomén Bazar.sk na kategórie Bazárnika. */
+/** Mapovanie poddomén Bazar.sk na kategórie Bazárnika (základná úroveň). */
 const SUBDOMAIN_CATEGORY: Record<string, string> = {
   auto: "osobne-automobily",
   motorky: "motorky",
@@ -36,6 +34,171 @@ const SUBDOMAIN_CATEGORY: Record<string, string> = {
   stroje: "naradie",
   starozitnosti: "zberatelstvo",
   ostatne: "ostatne-inzeraty",
+};
+
+/**
+ * Mapovanie konkrétnych podkategórií Bazar.sk (slug z URL karty) na presné
+ * kategórie Bazárnika – inzerát tak ide priamo správne, AI to len doladí.
+ * Nezmapované podkategórie padajú na mapu poddomén.
+ */
+const SUBCATEGORY_CATEGORY: Record<string, string> = {
+  // foto / kamera
+  "fotoaparaty": "fotoaparaty",
+  "doplnky-foto-kamery": "fotograficke-vybavenie",
+  // mobily / elektro
+  "sim-karty": "prislusenstvo-elektronika",
+  "tablety": "tablety",
+  "wifi-sietove-prvky": "prislusenstvo-elektronika",
+  "tlaciarne": "prislusenstvo-elektronika",
+  "zdroje-zalozne-zdroje": "prislusenstvo-elektronika",
+  // audio
+  "dj-technika": "audio-technika",
+  "reproduktory": "audio-technika",
+  "reproduktory-repro-sustavy": "audio-technika",
+  "zvukova-technika": "audio-technika",
+  "radia-magnetofony-a-hifi": "audio-technika",
+  "mp3-prehravace": "audio-technika",
+  // hudobné nástroje
+  "klavesy": "hobby-a-volny-cas",
+  "gitary": "hobby-a-volny-cas",
+  "slacikove-nastroje": "hobby-a-volny-cas",
+  // káble / nabíjanie
+  "kable-a-konektory": "nabijacky-a-kable",
+  "kable-a-redukcie": "nabijacky-a-kable",
+  // PC
+  "notebooky": "notebooky",
+  "herne-konzoly": "herne-konzoly",
+  // spotrebiče
+  "chladnicky": "domace-spotrebice",
+  "digestory": "domace-spotrebice",
+  "pracky": "domace-spotrebice",
+  "umyvacky-riadu": "domace-spotrebice",
+  "zehlicky": "domace-spotrebice",
+  "ostatne-elektro-spotrebice": "domace-spotrebice",
+  // šport
+  "fitness-kulturistika": "fitness",
+  "cyklistika": "cyklistika",
+  "futbal": "loptove-sporty",
+  "korcule": "sport-a-outdoor",
+  "lyzovanie": "lyzovanie",
+  "kemping": "kemping",
+  "altanky-stany-domceky": "kemping",
+  "turistika-a-horolezectvo": "turistika",
+  "rybolov": "polovnictvo-a-rybarstvo",
+  "polovnictvo": "polovnictvo-a-rybarstvo",
+  "stvorkolky": "stvorkolky",
+  // motocykle (typy motocyklov)
+  "skutre": "motocykle",
+  "enduro": "motocykle",
+  "chopper": "motocykle",
+  "supersport": "motocykle",
+  "tourist": "motocykle",
+  "naked": "motocykle",
+  "motokary": "stvorkolky",
+  "motory": "motodiely",
+  // autá (značky)
+  "bmw": "osobne-automobily",
+  "fiat": "osobne-automobily",
+  "ford": "osobne-automobily",
+  "jeep": "osobne-automobily",
+  "mercedes": "osobne-automobily",
+  "mitsubishi": "osobne-automobily",
+  "seat": "osobne-automobily",
+  "skoda": "osobne-automobily",
+  "subaru": "osobne-automobily",
+  "volkswagen": "osobne-automobily",
+  "volvo": "osobne-automobily",
+  "historicke": "osobne-automobily",
+  // stroje
+  "traktory": "naradie",
+  "polnohospodarske-stroje": "naradie",
+  "stavebne-stroje": "naradie",
+  "drevoobrabacie-stroje": "naradie",
+  "sijacie-stroje": "naradie",
+  "naradie": "naradie",
+  "zahradne-naradie": "zahradna-technika",
+  // zvieratá
+  "psy-a-steniatka": "psy",
+  "macky-a-maciatka": "macki",
+  "rybicky": "akvaristika",
+  "terarijne": "teraristika",
+  "hydina": "zvierata",
+  "zajace-a-kraliky": "zvierata",
+  "vtaky": "vtaky",
+  "krmivo": "chovatelske-potreby",
+  "chovatelske-potreby": "chovatelske-potreby",
+  // nábytok / dom
+  "bytove-doplnky": "dekoracie",
+  "police-kniznice": "nabytok",
+  "komody": "nabytok",
+  "stoly": "nabytok",
+  "obyvacky": "nabytok",
+  "sedacky-sedacie-supravy": "nabytok",
+  "postele-matrace": "nabytok",
+  "kancelarsky-nabytok": "nabytok",
+  "ostatny-nabytok": "nabytok",
+  "nabytok-na-mieru": "nabytok",
+  "detsky-nabytok": "deti-a-hracky",
+  // deti
+  "hracky": "deti-a-hracky",
+  "kociky": "deti-a-hracky",
+  "kolisky-hojdacky": "deti-a-hracky",
+  "trojkolky": "deti-a-hracky",
+  "zavinovacky-a-fusaky": "deti-a-hracky",
+  // oblečenie
+  "bundy": "oblecenie-a-moda",
+  "bundy-kabaty-a-kombinezy": "oblecenie-a-moda",
+  "kabaty": "oblecenie-a-moda",
+  "ciapky-saly-a-rukavice": "oblecenie-a-moda",
+  "nohavice-a-kratasy": "oblecenie-a-moda",
+  "saty": "oblecenie-a-moda",
+  "sukne": "oblecenie-a-moda",
+  "svetre-a-rolaky": "oblecenie-a-moda",
+  "tricka": "oblecenie-a-moda",
+  "damska-obuv": "oblecenie-a-moda",
+  "panska-obuv": "oblecenie-a-moda",
+  "detska-obuv": "oblecenie-a-moda",
+  "kabelky": "oblecenie-a-moda",
+  "ostatne-modne-doplnky": "oblecenie-a-moda",
+  "ostatne-oblecenie": "oblecenie-a-moda",
+  "ostatne-detske-oblecenie": "oblecenie-a-moda",
+  "spolocenske-saty": "oblecenie-a-moda",
+  "svadobne-saty": "oblecenie-a-moda",
+  "teplakove-supravy": "oblecenie-a-moda",
+  // knihy / média
+  "romany": "knihy",
+  "poezia": "knihy",
+  "ucebnice-zs-a-ss": "knihy",
+  "detske-knihy": "knihy",
+  "odborna-literatura": "knihy",
+  "cudzojazycna-literatura": "knihy",
+  "cestopisy": "knihy",
+  "encyklopedie": "knihy",
+  "chovatelska-literatura": "knihy",
+  "ostatne-knihy": "knihy",
+  "skolske-potreby": "knihy",
+  "cd-dvd-lp-mc-hudba": "filmy-a-hudba",
+  // lístky
+  "vstupenky-a-listky": "vstupenky",
+  "vstupenky-na-koncerty": "vstupenky",
+  // práca
+  "zivotopisy": "pracovne-ponuky",
+  // dom / stavba
+  "ploty-brany": "stavebny-material",
+  "obklady-a-dlazby": "stavebny-material",
+  "stavebne-drevo-rezivo": "stavebny-material",
+  "nadrze-sachty-zumpy": "stavebny-material",
+  "voda-odpady": "stavebny-material",
+  "solarne-systemy-fotovoltaika": "vykurovanie",
+  "palivove-drevo-pelety-brikety": "dom-a-zahrada",
+  "stiepacky-dreva": "dom-a-zahrada",
+  "zahradne-grily-krby": "zahradny-nabytok",
+  "zahradny-nabytok": "zahradny-nabytok",
+  "bazeny-doplnky": "bazeny",
+  // ostatné
+  "zlavove-kupony": "ostatne-inzeraty",
+  "potraviny": "ruzne-predmety",
+  "ostatne-inzeraty": "ostatne-inzeraty",
 };
 
 /** Prednastavené poddomény, ktoré sa čítajú pri synchronizácii (strana 1). */
@@ -100,6 +263,11 @@ interface SchemaProduct {
   offers?: SchemaOffer;
 }
 
+interface CardInfo {
+  location: string | null;
+  subcategory: string | null;
+}
+
 /**
  * JSON-LD bloky majú v popisoch surové riadiace znaky (odradkovania),
  * ktoré zamietne klasické JSON.parse. Nahradíme ich medzerou – štruktúra
@@ -125,6 +293,29 @@ function parseJsonLdProducts(html: string): SchemaProduct[] {
     }
   }
   return [];
+}
+
+/**
+ * Z verejných kariet inzerátov (hmr-primary) vyzvedne lokalitu a podkategóriu.
+ * Každá karta je vyznačená `data-id`, lokalita je v neviditeľnom riadku
+ * (span.location) – číta sa len to, čo si obyčajný návštevník vidí.
+ */
+function extractCardInfo(html: string): Map<string, CardInfo> {
+  const info = new Map<string, CardInfo>();
+  const starts = [...html.matchAll(/<div class="hmr-primary" data-id="(\d+)">/gi)].map(
+    (m) => ({ id: m[1], index: m.index ?? 0 })
+  );
+  for (let i = 0; i < starts.length; i++) {
+    const from = starts[i].index;
+    const to = i + 1 < starts.length ? starts[i + 1].index : Math.min(html.length, from + 40_000);
+    const chunk = html.slice(from, to);
+    const location =
+      chunk.match(/<span class="location"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/i)?.[1]?.trim() ?? null;
+    const subcategory =
+      chunk.match(/<a class="category" href="[^"]*\/([a-z0-9-]+)\/"/i)?.[1] ?? null;
+    info.set(starts[i].id, { location: location ? decodeEntities(location) : null, subcategory });
+  }
+  return info;
 }
 
 function subdomainOf(url: string): string | null {
@@ -155,12 +346,12 @@ export const bazarskAdapter: ExternalSourceAdapter = {
   name: "Bazar.sk (verejné štruktúrované dáta)",
   websiteUrl: "https://www.bazar.sk",
   accessDescription:
-    "Číta výhradne verejné štruktúrované dáta (schema.org JSON-LD), ktoré Bazar.sk natívne vkladá do svojich stránok pre vyhľadávače. Bez súkromného API, bez obchádzania ochrán, v skromnom objeme s pauzami medzi dopytmi. Ideálne by bol oficiálny dátový feed ako má Bazoš – po dorozumení s prevádzkovateľom sa adaptér jednoducho prepne na neho.",
+    "Číta výhradne verejné štruktúrované dáta (schema.org JSON-LD) a verejné karty inzerátov (lokalita, podkategória), ktoré Bazar.sk natívne vkladá do svojich stránok pre vyhľadávače. Bez súkromného API, bez obchádzania ochrán, v skromnom objeme s pauzami medzi dopytmi. Inzeráty bez fotky sa neprijímajú.",
 
   async fetchListings(config: AdapterSourceConfig): Promise<NormalizedListing[]> {
-    // Bazar.sk odmieta pripojenia z Vercelovych datovych IP (fetch failed).
-    // Import preto bezi vylucne cez GitHub Actions skript
-    // scripts/bazarsk-export.mjs, ktory posielá dáta do /api/external-import.
+    // Bazar.sk odmieta pripojenia z Vercelových dátových IP (fetch failed).
+    // Import preto beží výlučne cez GitHub Actions skript
+    // scripts/bazarsk-export.mjs, ktorý posiela dáta do /api/external-import.
     if (process.env.VERCEL) return [];
 
     if (config.feedUrl) {
@@ -222,12 +413,13 @@ export const bazarskAdapter: ExternalSourceAdapter = {
 
 function parseAndNormalize(html: string): NormalizedListing[] {
   const products = parseJsonLdProducts(html);
+  const cards = extractCardInfo(html);
   const listings: NormalizedListing[] = [];
 
   for (const product of products) {
     const url = typeof product.offers?.url === "string" ? product.offers.url : null;
     const externalIdRaw = product.offers?.serialNumber;
-    const externalId = externalIdRaw != null ? String(externalIdRaw) : null;
+    const externalId = externalIdRaw != null ? String(externalIdRaw).trim() : null;
     if (!url || !externalId || !externalId.trim()) continue;
 
     const title = decodeEntities(String(product.name)).replace(/\s+/g, " ").trim();
@@ -237,11 +429,25 @@ function parseAndNormalize(html: string): NormalizedListing[] {
       ? decodeEntities(String(product.description)).replace(/\s+/g, " ").trim() || null
       : null;
 
+    // Inzeráty bez fotky sa nezobrazujú – preskočíme ich.
+    const imageUrl = Array.isArray(product.image) ? (product.image[0] ?? null) : (product.image ?? null);
+    if (typeof imageUrl !== "string" || !imageUrl.startsWith("http")) continue;
+
     const priceRaw = product.offers?.price;
     const numericPrice = typeof priceRaw !== "undefined" && priceRaw !== null ? Number(priceRaw) : null;
     const price = numericPrice !== null && Number.isFinite(numericPrice) ? numericPrice : null;
 
-    const imageUrl = Array.isArray(product.image) ? (product.image[0] ?? null) : (product.image ?? null);
+    const card = cards.get(externalId.trim());
+    const subdomainSlug = subdomainOf(url);
+    const subcategory = card?.subcategory ?? null;
+    const categorySlug = subcategory
+      ? SUBCATEGORY_CATEGORY[subcategory] ?? (subdomainSlug ? SUBDOMAIN_CATEGORY[subdomainSlug] ?? null : null)
+      : subdomainSlug
+        ? SUBDOMAIN_CATEGORY[subdomainSlug] ?? null
+        : null;
+
+    const location =
+      (card?.location && decodeEntities(card.location)) ?? detectLocation(`${title} ${description ?? ""}`);
     const currencyOffered = product.offers?.priceCurrency;
 
     listings.push({
@@ -254,9 +460,9 @@ function parseAndNormalize(html: string): NormalizedListing[] {
       condition: null,
       brand: null,
       model: null,
-      location: detectLocation(`${title} ${description ?? ""}`),
-      categorySlug: subdomainOf(url) ? SUBDOMAIN_CATEGORY[subdomainOf(url) as string] ?? null : null,
-      imageUrl: typeof imageUrl === "string" && imageUrl.startsWith("http") ? imageUrl : null,
+      location,
+      categorySlug,
+      imageUrl,
       publishedAt: null,
     });
   }
