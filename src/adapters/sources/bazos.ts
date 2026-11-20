@@ -139,7 +139,7 @@ const CITY_STEMS: Array<[string, string]> = [
   ["Hradec", "Hradec Králové"],
 ];
 
-function detectLocation(text: string | null): string | null {
+export function detectLocation(text: string | null): string | null {
   if (!text) return null;
   const explicit = text.match(/\b(?:mesto|lokalita|kraj|okres|miesto)\s*:\s*([^\n<,;.]{2,40})/i);
   if (explicit) {
