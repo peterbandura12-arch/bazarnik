@@ -292,6 +292,39 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         }
       }
 
+      // Backfill: Bazar.sk miniatúry (320x240) vymeň za veľké fotky z detailu inzerátu.
+      const { data: bazarsktiny } = await admin
+        .from("external_listings")
+        .select("id, url")
+        .like("image_url", "%/foto/MzIweDI0MC%")
+        .eq("is_available", true)
+        .limit(30);
+      for (const row of bazarsktiny ?? []) {
+        try {
+          const res = await fetch(row.url, {
+            cache: "no-store",
+            signal: AbortSignal.timeout(10_000),
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            },
+          });
+          if (!res.ok) continue;
+          const html = await res.text();
+          const big =
+            html.match(/<img[^>]+src="(https:\/\/img\.unitedclassifieds\.sk\/foto\/[^"\s]*fit-in[^"]*)"/i)?.[1] ??
+            html.match(/property="og:image" content="(https:\/\/img\.unitedclassifieds\.sk\/foto\/[^"\s]+)"/i)?.[1];
+          if (!big) continue;
+          const bigUrl = big.replace(/&amp;/g, "&");
+          await admin
+            .from("external_listings")
+            .update({ image_url: bigUrl, focal_x: null, focal_y: null })
+            .eq("id", row.id);
+        } catch {
+          // fotka sa preskočí
+        }
+      }
+
       // Auto-focus: vypocet bodu zajmu fotiek pre nove inzeraty (max 40 na beh).
       const { data: unfocused } = await admin
         .from("external_listings")

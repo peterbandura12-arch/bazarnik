@@ -46,6 +46,33 @@ const RULES: RefineRule[] = [
     test: /(rtx\s*\d|gtx\s*\d|\brx\s*\d{4}|grafic)/i,
     onlyIfIn: ["pocitace-a-gaming", "pc-komponenty", "stolne-pocitace", "elektronika"],
   },
+  // Pneumatiky a disky nie sú osobné auto (kolesá, disky, gumy…)
+  {
+    category: "pneumatiky-a-disky",
+    test:
+      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie)/i,
+    onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla"],
+  },
+  // Diely a príslušenstvo nie sú osobné auto (motor, prevodovka, brzdy…)
+  {
+    category: "autodiely",
+    test:
+      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|brzdov|stierač|v[yý]fuk|karos[ée]ri|n[áa]razov|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filtr|senzor|kardan|podvozok|katalyz|zdvih|klakson|plechov?|n[áa]hradn[ée]\s+diel|\bdiely\b|\bdiel\b|rozde)/i,
+    onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla"],
+  },
+  // Diely motocyklov nie sú motocykel
+  {
+    category: "motodiely",
+    test:
+      /(\bdiel|koles|motocyklov[áee]\s+(motor|v[yý]fuk|brzd|rám)|profilov?[áa]|\bkufor\b|\bkufr\b|svetlomet|zrkadl|prevodovk|plechov?)/i,
+    onlyIfIn: ["motocykle"],
+  },
+  // Autopríslušenstvo (koberce, kryty, kufre…)
+  {
+    category: "autoprislusenstvo",
+    test: /(koberec|koberce|kryty|kryt\s+|pon?tah|pon?tahy|kufor\s+auta| dekor|diagnostk|kamera\s+do\s+auta|palubn|termopast|glyc[ée]r|n[áa]pl[ňn]|olaj|aditív)/i,
+    onlyIfIn: ["osobne-automobily"],
+  },
 ];
 
 /**

@@ -401,13 +401,39 @@ const POPULAR_KEYWORDS = [
 
 /** Inzeraty, ktore v nazve obsahuju casto hladane vyrazy (popularne produkty). */
 export async function getPopularListings(perPage = 8): Promise<SearchResult> {
-  const pool = await searchListings({ sort: "najnovsie", perPage: 400 });
-  const popular = pool.items.filter((l) => {
-    const t = l.title.toLowerCase();
-    return POPULAR_KEYWORDS.some((k) => t.includes(k));
-  });
-  if (popular.length >= 4) {
-    return { ...pool, items: popular.slice(0, perPage), total: popular.length };
+  const pool = await searchListings({ sort: "najnovsie", perPage: 600 });
+
+  // Najatraktívnejšie inzeráty s nejlepšou kvalitou fotiek:
+  // 1) povinná fotka + cena + poloha,
+  // 2) bonus za atraktívne kľúčové slovo (telefóny, autá, konzoly…),
+  // 3) bonus za HD fotku (bez 320x240 miniatúry),
+  // 4) bonus za srozumiteľný titulok.
+  const scored = pool.items
+    .filter((l) => l.image_url && l.price != null && (l.location ?? "").trim().length > 0)
+    .map((l) => {
+      const t = l.title.toLowerCase();
+      let score = 40;
+      const kwIndex = POPULAR_KEYWORDS.findIndex((k) => t.includes(k));
+      if (kwIndex >= 0) score += Math.max(0, 40 - kwIndex);
+      if (!l.image_url!.includes("MzIweDI0MC")) score += 6; // HD fotka namiesto 320x240 miniatúry
+      if (t.length >= 12 && t.length <= 80) score += 2;
+      if ((l.price ?? 0) >= 50) score += 1; // veci s reálnou cenou súb atraktívnejšie
+      return { listing: l, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((s) => s.listing);
+
+  const featured = scored.slice(0, perPage);
+  if (featured.length >= 4) {
+    return { ...pool, items: featured, total: featured.length };
+  }
+
+  // Fallback: nové inzeráty s fotkou aj cenou (bez ohľadu na skóre)
+  const fallback = pool.items
+    .filter((l) => l.image_url && l.price != null)
+    .slice(0, perPage);
+  if (fallback.length >= 4) {
+    return { ...pool, items: fallback, total: fallback.length };
   }
   return pool;
 }
