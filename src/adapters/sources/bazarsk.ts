@@ -158,6 +158,11 @@ export const bazarskAdapter: ExternalSourceAdapter = {
     "Číta výhradne verejné štruktúrované dáta (schema.org JSON-LD), ktoré Bazar.sk natívne vkladá do svojich stránok pre vyhľadávače. Bez súkromného API, bez obchádzania ochrán, v skromnom objeme s pauzami medzi dopytmi. Ideálne by bol oficiálny dátový feed ako má Bazoš – po dorozumení s prevádzkovateľom sa adaptér jednoducho prepne na neho.",
 
   async fetchListings(config: AdapterSourceConfig): Promise<NormalizedListing[]> {
+    // Bazar.sk odmieta pripojenia z Vercelovych datovych IP (fetch failed).
+    // Import preto bezi vylucne cez GitHub Actions skript
+    // scripts/bazarsk-export.mjs, ktory posielá dáta do /api/external-import.
+    if (process.env.VERCEL) return [];
+
     if (config.feedUrl) {
       // Keď je feedUrl nastavená, čítajú sa konkrétne stránky zoznamov (možné aj podľa filtra).
       const pages = config.feedUrl
