@@ -17,10 +17,127 @@ const MODEL_FALLBACKS = [
   "gemini-3.5-flash-lite",
 ].filter((m, i, arr) => arr.indexOf(m) === i);
 
+// Najrýchlejší model – pre krátke JSON úlohy (router zámeru).
+const FAST_MODEL = process.env.GEMINI_FAST_MODEL ?? "gemini-3.5-flash-lite";
+const FAST_FALLBACKS = [FAST_MODEL, "gemini-flash-latest", PRIMARY_MODEL].filter(
+  (m, i, arr) => arr.indexOf(m) === i
+);
+
 // Kratší timeout na pokus = rýchlejšie prejdenie na záložný model, keď je
 // jeden pretlačený – používateľá menej čaká.
 const ATTEMPT_TIMEOUT_MS = 15_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Rýchle JSON volanie pre jednoduché úlohy (rozpoznanie zámeru, extrakcia
+ * parametrov). Používa najrýchlejší model, aby bot začal reagovať okamžite –
+ * dlhá generatívna odpoveď ide až cez streamText.
+ */
+export async function generateFastJson({
+  system,
+  prompt,
+  maxTokens = 400,
+}: {
+  system: string;
+  prompt: string;
+  maxTokens?: number;
+}): Promise<GenerateResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { ok: false, text: null, detail: "missing-key" };
+
+  let last: GenerateResult = { ok: false, text: null, detail: "no-attempt" };
+  for (let m = 0; m < FAST_FALLBACKS.length; m++) {
+    if (m > 0) await sleep(250);
+    const result = await callGemini(FAST_FALLBACKS[m], apiKey, {
+      system,
+      prompt,
+      json: true,
+      maxTokens,
+    });
+    if (result.ok) return result;
+    last = result;
+  }
+  return last;
+}
+
+/**
+ * Streamovaná generácia (SSE od Google) – tokeny odovzdáva hneď, ako prídu,
+ * takže chat začína odpovedať už po ~1 s namiesto čakania na celú odpoveď.
+ * Vracia async generátor kúskov textu; ak model zlyhá skôr než prvé tokeny,
+ * skúsi ďalší model v rade.
+ */
+export async function* streamText({
+  system,
+  prompt,
+  maxTokens = 900,
+}: {
+  system: string;
+  prompt: string;
+  maxTokens?: number;
+}): AsyncGenerator<string, void, void> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return;
+
+  for (const model of MODEL_FALLBACKS) {
+    let produced = false;
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: system }] },
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: maxTokens,
+              thinkingConfig: { thinkingLevel: "low" },
+            },
+          }),
+          signal: AbortSignal.timeout(60_000),
+        }
+      );
+
+      if (!res.ok || !res.body) continue;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(payload) as {
+              candidates?: Array<{ content?: { parts?: Array<{ text?: string } | null> } }>;
+            };
+            const chunk =
+              parsed?.candidates?.[0]?.content?.parts?.map((p) => p?.text ?? "").join("") ?? "";
+            if (chunk) {
+              produced = true;
+              yield chunk;
+            }
+          } catch {
+            // neúplný kus SSE – preskočíme
+          }
+        }
+      }
+      if (produced) return;
+    } catch {
+      if (produced) return;
+      continue;
+    }
+  }
+}
 
 /**
  * Zavola Google Gemini a vrati vygenerovany text.

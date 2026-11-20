@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { generateText, isAiEnabled } from "@/lib/ai";
+import { generateFastJson, isAiEnabled, streamText } from "@/lib/ai";
 import { searchListings } from "@/lib/listings";
 import { safeSearchExternal, type ExternalResult } from "@/lib/meta-search";
 import { CATEGORY_TREE } from "@/lib/categories";
 import type { UnifiedListing } from "@/types/database";
 
 export const maxDuration = 120;
-
-const SEARCH_MARKER = "@@SEARCH@@";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -24,43 +22,66 @@ const CATEGORY_SLUGS = CATEGORY_TREE.flatMap((p) => [
   ...p.children.map((c) => c.slug),
 ]);
 
-const SYSTEM_PROMPT = [
-  "Si priateľský AI asistent webu Bazárnik, slovenskej inzertnej platformy, ktorá zhromažďuje ponuky z Bazoša, Bazar.sk, Vintedu a ďalších bazárov na jednom mieste.",
+/**
+ * ROUTER – krátke a rýchle zadanie pre najrýchlejší model. Rozhodne, či
+ * používateľ HĽADÁ tovar (a s akými parametrami), chce DOPTAŤ (Alza-štýl:
+ * model → stav → rozpočet → mesto) alebo len POKECA/SA SPÝTA.
+ * Vďaka krátkemu JSON trvá router zvyčajne ~1 s.
+ */
+const ROUTER_SYSTEM = [
+  "Si rýchly router AI asistenta Bazárnik (slovenský inzertný agregátor ponúk z Bazoša, Bazar.sk a ďalších bazárov). Rozhodni o zámere používateľa podľa konverzácie.",
+  "Vráť VÝHRADNE jeden JSON objekt bez ďalšieho textu, presne v jednom z týchto tvarov:",
+  '{"intent":"search","q":"...","category":null,"minPrice":null,"maxPrice":null,"location":null,"condition":null}',
+  '{"intent":"clarify","reply":"...","suggest":["...","..."]}',
+  '{"intent":"chat"}',
+  "PRAVIDLÁ:",
+  "- intent=search: používateľ hľadá konkrétny tovar a z konverzácie JASNE vyplýva ČO hľadá (značka, model alebo aspoň typ). q = kľúčové slová presne tak, ako by ich napísal predajca v názve inzerátu (značka + model + variant, bez cien a miest). category = jeden slug zo zoznamu alebo null: " +
+    CATEGORY_SLUGS.join(", ") +
+    ". condition len jedno z: nove, ako_nove, pouzite, na_diely alebo null. minPrice/maxPrice = čísla v EUR alebo null. location = mesto alebo kraj v SR alebo null.",
+  "- intent=clarify: používateľ používa hľadá tovar, ale zámer je príliš vágný (nevieš určiť presný model, typ ani variant). reply = JEDNA krátka priateľská otázka v slovenčine na najdôležitejšiu chýbajúcu vec, v tomto poradí priority: (1) presný model/typ/variant, (2) stav, (3) rozpočet (cena-do), (4) mesto. suggest = 2–4 krátke hotové odpovede na výber (max 30 znakov), napr. [\"do 150 €\",\"do 300 €\",\"nevadí cena\"]. Ak niečo z konverzácie už vieš, vyplň aj q/category/parametre.",
+  "- intent=chat: všetko ostatné – otázky, rady, ceny, rozhovor.",
+  "- DÔLEŽITÉ: ak používateľ používa hľadá a po predchádzajúcej otázke už aspoň niečo upresnil (alebo dotaz sám je dosť konkrétny), VRÁŤ intent=search a nepýtaj sa znova. Maximálne JEDNA upresňujúca otázka za celý rozhovor.",
+  "- Ak používateľ upresňovaciu otázku ignoruje a opakuje rovnaký dotaz, vráť intent=search s tým, čo máš.",
+].join("\n");
+
+const routerSchema = z.object({
+  intent: z.enum(["search", "clarify", "chat"]),
+  q: z.string().max(200).optional().nullable(),
+  category: z.string().max(60).optional().nullable(),
+  minPrice: z.number().optional().nullable(),
+  maxPrice: z.number().optional().nullable(),
+  location: z.string().max(60).optional().nullable(),
+  condition: z.enum(["nove", "ako_nove", "pouzite", "na_diely"]).optional().nullable(),
+  reply: z.string().max(1500).optional().nullable(),
+  suggest: z.array(z.string().max(60)).max(6).optional().nullable(),
+});
+
+const CHAT_SYSTEM = [
+  "Si priateľský AI asistent webu Bazárnik, slovenskej inzertnej platformy, ktorá zhromažďuje ponuky z Bazoša, Bazar.sk a ďalších bazárov na jednom mieste.",
   "Odpovedaj VÝHRADNE v slovenčine, prirodzene a ľudsky.",
   "Odpovedaj na akúkoľvek otázku – rady pri nákupe a predaji, orientačné ceny použitých vecí, bezpečné obchodovanie, technické otázky, všeobecné znalosti, bežný rozhovor. Odmietaj len nebezpečné alebo neetické veci.",
-  "ŠPECIÁLNE PRAVIDLO – ak používateľ hľadá konkrétny tovar alebo opisuje, čo chce kúpiť, sprav oboje:",
-  "1) Odpovedz krátkou správnou vetou (napr. „Hľadám pre vás ponuky…“).",
-  `2) Na úplne nový riadok potom pridaj blok presne v tvare: ${SEARCH_MARKER}{"q":"...","category":null,"minPrice":null,"maxPrice":null,"location":null,"condition":null}`,
-  "V bloku: q = všetky kľúčové slová (značka, model, variant) tak, ako by ich napísal predajca v názve inzerátu; bez cien a miest.",
-  "category musí byť jeden z týchto slugov: " + CATEGORY_SLUGS.join(", ") + " alebo null.",
-  "condition môže byť len jedno z: nove, ako_nove, pouzite, na_diely, alebo null.",
-  "minPrice/maxPrice sú čísla v EUR alebo null. location je mesto alebo kraj v Slovensku alebo null.",
-  "Ak používateľ tovar NEHĽADÁ, blok vôbec nepridávaj – len odpovedz.",
+  "Odpovede drž stručné a jasné (zvyčajne do 150 slov), pokiaľ si používateľ nepýta detail. Formátuj odrazkami, keď sa to hodí.",
+  "Keď má zmysel, krátko na konci navrhni, že môže napísať čo hľadá (napr. „hladam iphone 13“) a nájdeš mu konkrétne inzeráty.",
 ].join("\n");
 
 const searchSchema = z.object({
   q: z.string().max(200),
   category: z.string().max(60).optional().nullable(),
-  minPrice: z.number().min(0).max(1_000_000).optional().nullable(),
-  maxPrice: z.number().min(0).max(1_000_000).optional().nullable(),
+  minPrice: z.number().optional().nullable(),
+  maxPrice: z.number().optional().nullable(),
   location: z.string().max(60).optional().nullable(),
   condition: z.enum(["nove", "ako_nove", "pouzite", "na_diely"]).optional().nullable(),
 });
 
-function parseSearchBlock(raw: string): { intro: string; search: z.infer<typeof searchSchema> } | null {
-  const idx = raw.indexOf(SEARCH_MARKER);
-  if (idx === -1) return null;
-  const after = raw.slice(idx + SEARCH_MARKER.length);
-  let jsonText = after.trim();
+function extractJsonObject(raw: string): unknown | null {
+  let jsonText = raw.trim();
   if (jsonText.startsWith("```")) {
     jsonText = jsonText.replace(/^```(?:json)?\s*/, "").replace(/```\s*$/, "");
   }
-  const match = jsonText.match(/\{[\s\S]*?\}/);
+  const match = jsonText.match(/\{[\s\S]*\}/);
   if (!match) return null;
   try {
-    const search = searchSchema.parse(JSON.parse(match[0]));
-    const intro = raw.slice(0, idx).trim();
-    return { intro, search };
+    return JSON.parse(match[0]);
   } catch {
     return null;
   }
@@ -84,6 +105,10 @@ async function runSearch(params: {
     sort: "relevantne",
     perPage: 6,
   });
+}
+
+function sseLine(data: unknown): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(data) + "\n");
 }
 
 export async function POST(request: Request) {
@@ -110,73 +135,144 @@ export async function POST(request: Request) {
     .map((m) => `${m.role === "user" ? "Používateľ" : "Asistent"}: ${m.content}`)
     .join("\n");
 
-  const gen = await generateText({ system: SYSTEM_PROMPT, prompt: history, maxTokens: 700 });
-  if (!gen.ok || !gen.text) {
-    return NextResponse.json(
-      { ok: false, error: `AI odpoveď sa nepodarilo získať (${gen.detail ?? "neznáma chyba"}).` },
-      { status: 502 }
-    );
-  }
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const push = (data: unknown) => controller.enqueue(sseLine(data));
+      try {
+        // 1) Rýchly router – ~1 s.
+        const gen = await generateFastJson({
+          system: ROUTER_SYSTEM,
+          prompt: history,
+          maxTokens: 400,
+        });
 
-  const raw = gen.text;
-  const found = parseSearchBlock(raw);
+        let router: z.infer<typeof routerSchema> | null = null;
+        if (gen.ok && gen.text) {
+          const obj = extractJsonObject(gen.text);
+          const check = routerSchema.safeParse(obj);
+          if (check.success) router = check.data;
+        }
 
-  if (!found) {
-    return NextResponse.json({
-      ok: true,
-      reply: { type: "text", text: raw.slice(0, 2000) },
-      items: [] as UnifiedListing[],
-      externalItems: [] as ExternalResult[],
-    });
-  }
+        // Router sa nepodaril → pokus o klasickú konverzačnú odpoveď (stream).
+        if (!router || router.intent === "chat") {
+          push({ type: "start" });
+          let produced = false;
+          for await (const chunk of streamText({
+            system: CHAT_SYSTEM,
+            prompt: history,
+            maxTokens: 700,
+          })) {
+            produced = true;
+            push({ type: "delta", text: chunk });
+          }
+          if (!produced) {
+            push({
+              type: "delta",
+              text:
+                "Prepáč, teraz sa mi nedarí odpovedať (AI je pretlačená). Skús to o chvíľu znova.",
+            });
+          }
+          push({ type: "done" });
+          controller.close();
+          return;
+        }
 
-  const s = found.search;
-  const base = {
-    q: s.q,
-    category: s.category ?? undefined,
-    minPrice: s.minPrice != null ? String(s.minPrice) : undefined,
-    maxPrice: s.maxPrice != null ? String(s.maxPrice) : undefined,
-    location: s.location ?? undefined,
-    condition: s.condition ?? undefined,
-  };
+        if (router.intent === "clarify") {
+          push({
+            type: "message",
+            text: router.reply?.trim() || "Napíšte mi, čo presne hľadáte.",
+            suggest: (router.suggest ?? []).filter((s) => s.trim()).slice(0, 4),
+          });
+          push({ type: "done" });
+          controller.close();
+          return;
+        }
 
-  try {
-    let result = await runSearch(base);
+        // intent === "search"
+        const q = (router.q ?? "").trim();
+        if (!q) {
+          push({
+            type: "message",
+            text: "Napíšte mi, čo presne hľadáte (napr. „horský bicykel do 200 € v Žiline“) a nájdem ponuky.",
+            suggest: ["horský bicykel", "iPhone 13", "hračky pre deti", "nábytok do 100 €"],
+          });
+          push({ type: "done" });
+          controller.close();
+          return;
+        }
 
-    if (result.items.length === 0 && base.category) {
-      result = await runSearch({ ...base, category: undefined });
-    }
-    if (result.items.length === 0) {
-      result = await runSearch({ q: base.q, location: base.location });
-    }
-    if (result.items.length === 0) {
-      const firstWords = base.q.split(/\s+/).filter(Boolean).slice(0, 2).join(" ");
-      if (firstWords && firstWords !== base.q) {
-        result = await runSearch({ q: firstWords });
+        push({ type: "status", text: "Hľadám ponuky…" });
+
+        const category =
+          router.category && CATEGORY_SLUGS.includes(router.category) ? router.category : undefined;
+        const base = {
+          q,
+          category,
+          minPrice: router.minPrice != null ? String(router.minPrice) : undefined,
+          maxPrice: router.maxPrice != null ? String(router.maxPrice) : undefined,
+          location: router.location ?? undefined,
+          condition: router.condition ?? undefined,
+        };
+
+        let items: UnifiedListing[] = [];
+        let externalItems: ExternalResult[] = [];
+        try {
+          let result = await runSearch(base);
+
+          if (result.items.length === 0 && base.category) {
+            result = await runSearch({ ...base, category: undefined });
+          }
+          if (result.items.length === 0) {
+            result = await runSearch({ q: base.q, location: base.location });
+          }
+          if (result.items.length === 0) {
+            const firstWords = base.q.split(/\s+/).filter(Boolean).slice(0, 2).join(" ");
+            if (firstWords && firstWords !== base.q) {
+              result = await runSearch({ q: firstWords });
+            }
+          }
+
+          // Výsledky z ďalších portálov – len keď sú kľúče nastavené.
+          externalItems = await safeSearchExternal(base.q, 6);
+          items = result.items;
+        } catch {
+          // necháme prázdne – správa dole ošetrí text
+        }
+
+        const intro =
+          items.length > 0 || externalItems.length > 0
+            ? `Tu sú ponuky na „${q}“:`
+            : "Nič som nenašiel – skúste jednoduchšie slová alebo širšiu cenu.";
+
+        push({
+          type: "results",
+          text: intro,
+          q,
+          items,
+          externalItems,
+        });
+        push({ type: "done" });
+        controller.close();
+      } catch {
+        try {
+          push({
+            type: "message",
+            text: "Prepáčte, odpoveď sa nepodarila. Skúste to o chvíľu znova.",
+          });
+          push({ type: "done" });
+          controller.close();
+        } catch {
+          // klient už odišiel
+        }
       }
-    }
+    },
+  });
 
-    // Vysledky z dalsich portalov (bazar.sk, Aukro, Vinted…) – len ked su kluce nastavene.
-    const externalItems = await safeSearchExternal(base.q, 6);
-
-    return NextResponse.json({
-      ok: true,
-      reply: {
-        type: "search",
-        text:
-          result.items.length > 0 || externalItems.length > 0
-            ? found.intro || "Tu sú najrelevantnejšie ponuky:"
-            : "Nič som nenašiel – skúste jednoduchšie slová alebo širší rozsah ceny.",
-        q: s.q,
-      },
-      items: result.items,
-      externalItems,
-    });
-  } catch {
-    return NextResponse.json({
-      ok: true,
-      reply: { type: "text", text: "Vyhľadávanie teraz nedostupné, skúste to o chvíľu." },
-      items: [] as UnifiedListing[],
-    });
-  }
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

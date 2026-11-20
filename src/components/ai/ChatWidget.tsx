@@ -15,6 +15,32 @@ interface ChatMessage {
   content: string;
   items?: UnifiedListing[];
   externalItems?: ExternalResult[];
+  suggestions?: string[];
+}
+
+/** Navrhované možnosti (chips) pod správou bota – klik pošle správu za teba. */
+function SuggestionChips({
+  suggestions,
+  onPick,
+}: {
+  suggestions: string[];
+  onPick: (text: string) => void;
+}) {
+  if (suggestions.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {suggestions.map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onPick(s)}
+          className="rounded-full border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:border-brand-500 hover:bg-brand-100 active:scale-95"
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /** Zoznam vysledkov z ostatnych portalov v chate (klik -> povodny portal). */
@@ -160,14 +186,27 @@ export function ChatWidget({ enabled, isLoggedIn = false }: { enabled: boolean; 
 
   if (!enabled) return null;
 
-  async function send() {
-    const content = input.trim();
+  /** Aktualizuje poslednú (práve sa pťiacu) asistentovu správu. */
+  function patchAssistant(patch: Partial<ChatMessage>) {
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const copy = [...prev];
+      const last = copy[copy.length - 1];
+      if (last?.role !== "assistant") return prev;
+      copy[copy.length - 1] = { ...last, ...patch };
+      return copy;
+    });
+  }
+
+  async function send(presetContent?: string) {
+    const content = (presetContent ?? input).trim();
     if (!content || loading) return;
 
     const nextMessages: ChatMessage[] = [...messages, { role: "user", content }];
-    setMessages(nextMessages);
+    setMessages([...nextMessages, { role: "assistant", content: "" }]);
     setInput("");
     setLoading(true);
+    let acc = "";
 
     try {
       const res = await fetch("/api/ai/chat", {
@@ -180,28 +219,63 @@ export function ChatWidget({ enabled, isLoggedIn = false }: { enabled: boolean; 
             .map((m) => ({ role: m.role, content: m.content })),
         }),
       });
-      const data = await res.json();
-      if (data.ok) {
-        setMessages([
-          ...nextMessages,
-          {
-            role: "assistant",
-            content: data.reply?.text ?? "",
-            items: Array.isArray(data.items) ? data.items : [],
-            externalItems: Array.isArray(data.externalItems) ? data.externalItems : [],
-          },
-        ]);
-      } else {
-        setMessages([
-          ...nextMessages,
-          { role: "assistant", content: data.error ?? "Prepáčte, odpoveď sa nepodarila." },
-        ]);
+
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => null);
+        patchAssistant({ content: data?.error ?? "Prepáčte, odpoveď sa nepodarila." });
+        return;
+      }
+
+      // Stream: po riadkoch NavLink JSON udalosti {type: delta|results|message|suggest|done}.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let ev: {
+            type: string;
+            text?: string;
+            suggest?: string[];
+            items?: UnifiedListing[];
+            externalItems?: ExternalResult[];
+          };
+          try {
+            ev = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (ev.type === "start" || ev.type === "done") continue;
+
+          if (ev.type === "status") {
+            acc = "";
+            patchAssistant({ content: "" });
+          } else if (ev.type === "delta") {
+            acc += ev.text ?? "";
+            patchAssistant({ content: acc });
+          } else if (ev.type === "message") {
+            acc = ev.text ?? "";
+            patchAssistant({ content: acc, suggestions: ev.suggest ?? [] });
+          } else if (ev.type === "results") {
+            acc = ev.text ?? "";
+            patchAssistant({
+              content: acc,
+              items: Array.isArray(ev.items) ? ev.items : [],
+              externalItems: Array.isArray(ev.externalItems) ? ev.externalItems : [],
+            });
+          }
+        }
       }
     } catch {
-      setMessages([
-        ...nextMessages,
-        { role: "assistant", content: "Spojenie sa prerušilo, skúste to znova." },
-      ]);
+      patchAssistant({
+        content: acc || "Spojenie sa prerušilo, skúste to znova.",
+      });
     } finally {
       setLoading(false);
     }
@@ -283,9 +357,14 @@ export function ChatWidget({ enabled, isLoggedIn = false }: { enabled: boolean; 
                 </div>
               ) : (
                 <div key={i} className="space-y-2">
-                  <p className="max-w-[85%] rounded-2xl rounded-bl-sm bg-ink-100 px-3 py-2 text-sm text-ink-800">
-                    {m.content}
-                  </p>
+                  {m.content && (
+                    <p className="max-w-[85%] rounded-2xl rounded-bl-sm bg-ink-100 px-3 py-2 text-sm text-ink-800">
+                      {m.content}
+                    </p>
+                  )}
+                  {m.suggestions && m.suggestions.length > 0 && (
+                    <SuggestionChips suggestions={m.suggestions} onPick={(text) => send(text)} />
+                  )}
                   {m.items && m.items.length > 0 && (
                     <ChatResults items={m.items} onClose={() => setOpen(false)} />
                   )}
@@ -317,7 +396,7 @@ export function ChatWidget({ enabled, isLoggedIn = false }: { enabled: boolean; 
             />
             <button
               type="button"
-              onClick={send}
+              onClick={() => send()}
               disabled={loading || !input.trim()}
               aria-label="Odoslať správu"
               className="shrink-0 rounded-full bg-brand-600 p-2.5 text-white transition hover:bg-brand-700 disabled:opacity-40"
