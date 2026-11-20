@@ -161,7 +161,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
       let refined = 0;
       let scanned = 0;
       const REFINE_BATCH = 800;
-      for (let offset = 0; offset < 5000; offset += REFINE_BATCH) {
+      for (let offset = 0; offset < 20000; offset += REFINE_BATCH) {
         const { data: forRefine } = await admin
           .from("external_listings")
           .select("id, title, category_id")
@@ -202,7 +202,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             .select("id, title, description, category_id")
             .eq("source_id", source.id)
             .order("fetched_at", { ascending: false })
-            .limit(120);
+            .limit(300);
 
           const pool = (aiPool ?? []).map((row) => ({
             id: row.id,
@@ -215,7 +215,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           const ordered = [
             ...pool.filter((p) => !p.currentSlug),
             ...pool.filter((p) => p.currentSlug),
-          ].slice(0, 50);
+          ].slice(0, 100);
           aiChecked = ordered.length;
 
           const aiOut = await aiClassifyCategories(ordered);

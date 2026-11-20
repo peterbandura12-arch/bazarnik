@@ -1,77 +1,177 @@
 /**
  * Doladenie kategorií na základe názvu inzerátu.
  *
- * Externé portály (napr. Bazoš) uverejnujú smart hodinky, tablety či slúchadlá
- * v sekcii Mobilné telefóny. To spôsobuje nesprávne zaradenie. Tieto pravidlá
+ * Externé portály (napr. Bazoš, Bazar.sk) uverejňujú smart hodinky, tablety,
+ * diely, príslušenstvo či videogry v zle zvolených sekciách. Tieto pravidlá
  * prepíšu mapovanie podľa portálu, keď z názvu jednoznačne vyplýva presnejšia
- * kategória. Pravidla sa vzťahujú len na kategórie v `onlyIfIn` – tak sa zabráni
+ * kategória. Pravidlá sa vzťahujú len na kategórie v `onlyIfIn` – tak sa zabráni
  * prepísaniu dobre zaradených inzerátov z iných sekcií.
+ *
+ * Dôležité: prvé matchujúce pravidlo vyhráva – poradie v RULES je preto
+ * zámerné (napr. videogry sa vyhodnotia skôr ako herne konzoly).
  */
 
 interface RefineRule {
   category: string;
-  test: RegExp;
+  /** Regex alebo funkčný test (pre pravidlá, ktoré samotný regex nezvládne). */
+  test: RegExp | ((title: string) => boolean);
   onlyIfIn: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Mobilné príslušenstvo: funkčný test, lebo samotný regex nestačí.
+// Pravidlo: buď je titulok „vedený" slovom príslušenstva, ALEBO titulok
+// obsahuje slovo príslušenstva a zároveň NEBOUNUJE žiadny model telefónu
+// („obal GUESS" → príslušenstvo, ale „iPhone 13 + kryt" ostanú v telefónoch,
+// lebo tam je primárny produkt telefón).
+
+const ACCESSORY_FIRST_TOKEN_RE =
+  /^(obal|kryt|fond|puzdro|pouzdro|silik[oó]n|kožen|nabíjač|nabijac|kábel|kabel|adaptér|adapter|držiak|drziak|stojan|fóli|foli|tvrdé sklo|ochranné sklo|s-?pen|stylus|dotykov|memory|sd karta|micro ?sd|pamäťov|príslušenstv|prislusenstv|bezdrôtov|kondenzátor)/i;
+
+const ACCESSORY_WORD_RE =
+  /\b(obal|púzdr|puzdr|kryt|fond|fóli|foli|tvrdé sklo|ochranné sklo|nabíjač|nabijac|kábel|kabl|adaptér|adapter|držiak|drziak|stojan|pamäťov|memory\s+card|micro ?sd|s-?pen|stylus|dotykové pero|handričk|príslušenstv|prislusenstv|bezdrôtov)/i;
+
+const PHONE_MODEL_RE =
+  /(iphone|\d+\s?gb|galaxy|xiaomi|redmi|huawei|pixel|motorola|nokia|xperia|samsung|oneplus|oppo|realme|honor|sony\s+(xperia|wh|wf))/i;
+
+function isPhoneAccessory(title: string): boolean {
+  if (ACCESSORY_FIRST_TOKEN_RE.test(title)) return true;
+  if (!ACCESSORY_WORD_RE.test(title)) return false;
+  return !PHONE_MODEL_RE.test(title);
+}
+
 const RULES: RefineRule[] = [
+  // Videogry musia byť vyhodnotené SKÔR ako herne konzoly („FIFA 16 Xbox 360"
+  // je hra, nie konzola).
+  {
+    category: "videohry",
+    test:
+      /(fifa\s?\d|pes\s?\d|gta\s?[3-6]|gta\s?v|minecraft|call\s?of\s?duty|need\s?for\s?speed|\bnfs\b|farming\s?simulator|forza|battlefield|assassin|tomb\s?raider|hierka|\bhra\b|playstation\s?[2-5]\s+hra|\bxbox\s+(360\s+|\d+\s+)?hra)/i,
+    onlyIfIn: ["herne-konzoly", "pocitace-a-gaming", "herna-elektronika", "herne-prislusenstvo"],
+  },
+  // Herne konzoly (železo, nie hra ani príslušenstvo)
+  {
+    category: "herne-konzoly",
+    test: /(playstation\s*[2-5]|\bps[2-5]\b|\bxbox\b|nintendo|game\s?boy|gameboy|\bpsp\b|ps\s?vita|steam\s?deck|konzol)/i,
+    onlyIfIn: ["elektronika", "pocitace-a-gaming", "herna-elektronika", "herne-prislusenstvo", "videohry"],
+  },
   // Smart hodinky sa na Bazoši objavujú v sekcii mobil
   {
     category: "smart-hodinky",
     test:
-      /(apple\s*watch|galaxy\s*watch|smart\s*watch|smartwatch|smart\s*hodink|amazfit|garmin|fitbit|xiaomi\s*(mi\s*|redmi\s*)?band|mi\s*band|huawei\s*watch|honor\s*watch|watch\s*(gt|se|\d)|swatch|smartwatch|hodink)/i,
-    onlyIfIn: ["mobilne-telefony", "elektronika", "prislusenstvo-elektronika", "herna-elektronika"],
+      /(apple\s*watch|galaxy\s*watch|smart\s*watch|smartwatch|smart\s*hodink|amazfit|garmin|fitbit|xiaomi\s*(mi\s*|redmi\s*)?band|mi\s*band|huawei\s*watch|honor\s*watch|watch\s*(gt|se|4|5|6)|swatch|fitness\s*náram)/i,
+    onlyIfIn: ["mobilne-telefony", "elektronika", "prislusenstvo-elektronika", "herna-elektronika", "hodinky-moda"],
   },
   // Tablety
   {
     category: "tablety",
     test: /(ipad|tablet|galaxy\s*tab|tab\s*(a|s|se)\s*\d)/i,
-    onlyIfIn: ["mobilne-telefony", "elektronika", "notebooky", "pocitace-a-gaming"],
+    onlyIfIn: ["mobilne-telefony", "elektronika", "notebooky", "pocitace-a-gaming", "prislusenstvo-elektronika"],
   },
-  // Slúchadlá
+  // Mobilné príslušenstvo (funkčný test vyššie)
   {
-    category: "sluchadla",
-    test: /(airpods|sluchadl|earbuds|headset|galaxy\s*buds|bassbuds|halo|\bbuds\b)/i,
-    onlyIfIn: ["mobilne-telefony", "elektronika", "prislusenstvo-elektronika"],
+    category: "prislusenstvo-elektronika",
+    test: isPhoneAccessory,
+    onlyIfIn: ["mobilne-telefony", "elektronika", "smart-hodinky", "herna-elektronika", "tablety", "fotoaparaty"],
+  },
+  // Televízory
+  {
+    category: "televizory",
+    test:
+      /(televizor|televízor|\btv\b|oled|qled|android\s+tv|philips\s+\d{2}|panasonic\s+tx)/i,
+    onlyIfIn: ["elektronika", "dom-a-zahrada", "pocitace-a-gaming", "mobilne-telefony"],
+  },
+  // Domáce spotrebiče (robotické vysávače, pračky, mrazničky…)
+  {
+    category: "domace-spotrebice",
+    test:
+      /(vysávač|vysavac|robotický vys|pračk|prack|sušičk|mrazničk|chladničk|spin[áa]ck|umývačk|umyvack|sporák|sporak|mikrovlnn|žehlič)/i,
+    onlyIfIn: ["elektronika", "dom-a-zahrada", "nabytok"],
+  },
+  // Kuchynské vybavenie
+  {
+    category: "kuchynske-vybavenie",
+    test:
+      /(mixér|\bmixer\b|kávovar|kavovar|espress|fritéz|kuchynský robot|\briad\b|hrniec|panvic|príbor|kuchynské nože|odšťavovač|multicook)/i,
+    onlyIfIn: ["elektronika", "dom-a-zahrada", "nabytok"],
+  },
+  // Osvetlenie
+  {
+    category: "osvetlenie",
+    test: /(svietidl|lustr|lampa|\blampy\b|žiarov|LED\s+pás|LED\s+sviet|stropné svietidl|bodové svietidl)/i,
+    onlyIfIn: ["elektronika", "dom-a-zahrada", "prislusenstvo-elektronika"],
+  },
+  // Fotoaparáty, drony a fototechnika
+  {
+    category: "fotoaparaty",
+    test: /(dji|mavic|phantom|\bdron\b|meopta|zväčšovák|zvacsov|polaroid|zrkadlovka|bezzrkadlovka)/i,
+    onlyIfIn: ["elektronika", "dom-a-zahrada", "pocitace-a-gaming", "prislusenstvo-elektronika"],
   },
   // Notebooky
   {
     category: "notebooky",
-    test: /(notebook|macbook|laptop|thinkpad|\bideapad\b|\bzenbook\b|\bvivobook\b)/i,
-    onlyIfIn: ["pocitace-a-gaming", "elektronika", "stolne-pocitace", "mobilne-telefony"],
+    test: /(notebook|macbook|laptop|thinkpad|\bideapad\b|\bzenbook\b|\bvivobook\b|ultrabook)/i,
+    onlyIfIn: ["pocitace-a-gaming", "elektronika", "stolne-pocitace", "mobilne-telefony", "pc-komponenty"],
   },
-  // Grafické karty
+  // PC komponenty
   {
-    category: "graficke-karty",
-    test: /(rtx\s*\d|gtx\s*\d|\brx\s*\d{4}|grafic)/i,
-    onlyIfIn: ["pocitace-a-gaming", "pc-komponenty", "stolne-pocitace", "elektronika"],
+    category: "pc-komponenty",
+    test:
+      /(základn|doska|procesor|\bram\b|\bddr[2345]\b|\bcpu\b|chladeni|chladivo|skrinka|napájac|\bpsu\b|ventilátor|geforce|\brtx\s|\bgtx\s|\brx\s+\d{4}|grafick)/i,
+    onlyIfIn: ["elektronika", "pocitace-a-gaming", "stolne-pocitace", "ram-a-uloziska", "notebooky"],
   },
-  // Pneumatiky a disky nie sú osobné auto (kolesá, disky, gumy…)
+  // RAM a úložiská
+  {
+    category: "ram-a-uloziska",
+    test: /(ssd|\bhdd\b|\bnvme\b|\bm\.2|pendrive|usb\s+kľúč|micro\s?sd|pevný disk|externý disk|\bddr[34]\b\s?\d)/i,
+    onlyIfIn: ["pocitace-a-gaming", "elektronika", "pc-komponenty", "stolne-pocitace", "prislusenstvo-elektronika"],
+  },
+  // Náradie a agro/strojové diely (Zetor, Ursus, Takeuchi…)
+  {
+    category: "naradie",
+    test: /(zetor|ursus|locust|narex|sústruh|sustruh|lemese|podmietac|diskovic|medziskri|hydraulik|takeuchi|bobcat|\bjcb\b|nakladač|\bpluh\b|brázdi|\btraktor|\bfreké|\bbrús)/i,
+    onlyIfIn: ["dom-a-zahrada", "nabytok"],
+  },
+  // Pneumatiky a disky nie sú osobné auto (kolesá, disky, gumy)
   {
     category: "pneumatiky-a-disky",
     test:
-      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie)/i,
-    onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla"],
+      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie|\balu\b|\bfelg|\br1[3-9]\b|5x1[0-2]\d|styling\s+\d)/i,
+    onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
-  // Diely a príslušenstvo nie sú osobné auto (motor, prevodovka, brzdy…)
+  // Diely a príslušenstvo nie sú osobné auto (motor, prevodovka, brzdy, dvere…)
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|brzdov|stierač|v[yý]fuk|karos[ée]ri|n[áa]razov|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filtr|senzor|kardan|podvozok|katalyz|zdvih|klakson|plechov?|n[áa]hradn[ée]\s+diel|\bdiely\b|\bdiel\b|rozde)/i,
-    onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla"],
+      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|stierač|výfuk|karos[ée]ri|nárazov|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filter|senzor|kardan|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk)/i,
+    onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Diely motocyklov nie sú motocykel
   {
     category: "motodiely",
     test:
-      /(\bdiel|koles|motocyklov[áee]\s+(motor|v[yý]fuk|brzd|rám)|profilov?[áa]|\bkufor\b|\bkufr\b|svetlomet|zrkadl|prevodovk|plechov?)/i,
+      /(\bdiel|koles|motocyklov[áee]\s+(motor|výfuk|brzd|rám)|profilov?[áa]|\bkufor\b|svetlomet|zrkadl|prevodovk|plechov?|\btlmi|amortiz)/i,
     onlyIfIn: ["motocykle"],
   },
-  // Autopríslušenstvo (koberce, kryty, kufre…)
+  // Autopríslušenstvo (koberce, kryty, kufríky…)
   {
     category: "autoprislusenstvo",
-    test: /(koberec|koberce|kryty|kryt\s+|pon?tah|pon?tahy|kufor\s+auta| dekor|diagnostk|kamera\s+do\s+auta|palubn|termopast|glyc[ée]r|n[áa]pl[ňn]|olaj|aditív)/i,
+    test:
+      /(koberec|koberce|kryty|kryt\s+|po?tah|kufor\s+auta|dekor|diagnostk|kamera\s+do\s+auta|palubn|termopast|glyc[ée]r|aditív)/i,
     onlyIfIn: ["osobne-automobily"],
+  },
+  // Šperky a bižutéria (Pandora náramky nie sú oblečenie)
+  {
+    category: "sperky",
+    test: /(pandora|prívesok|privesok|náramok|naramok|prsteň|prstene|naušnic|bizut|\bsperk)/i,
+    onlyIfIn: ["oblecenie-a-moda", "panske-oblecenie", "damske-oblecenie", "detske-oblecenie-moda", "modne-doplnky", "hodinky-moda"],
+  },
+  // Elektromobilita
+  {
+    category: "elektromobilita",
+    test:
+      /(elektrick[ýáé].{0,20}(kolobežk|skúter|scooter)|e-?scooter|ninebot|segway|xiaomi\s+scooter|m365)/i,
+    onlyIfIn: ["sport-a-outdoor", "sportove-vybavenie", "deti-a-hracky", "hracky", "elektronika", "cyklistika"],
   },
 ];
 
@@ -86,7 +186,8 @@ export function refineCategoryByTitle(
   if (!categorySlug) return categorySlug;
   for (const rule of RULES) {
     if (!rule.onlyIfIn.includes(categorySlug)) continue;
-    if (rule.test.test(title)) return rule.category;
+    const hit = typeof rule.test === "function" ? rule.test(title) : rule.test.test(title);
+    if (hit) return rule.category;
   }
   return categorySlug;
 }

@@ -61,6 +61,8 @@ const SUBCATEGORY_CATEGORY = {
   "kable-a-redukcie": "nabijacky-a-kable",
   "notebooky": "notebooky",
   "herne-konzoly": "herne-konzoly",
+  "hry": "videohry",
+  "videohry": "videohry",
   "chladnicky": "domace-spotrebice",
   "digestory": "domace-spotrebice",
   "pracky": "domace-spotrebice",

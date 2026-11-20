@@ -68,6 +68,8 @@ const SUBCATEGORY_CATEGORY: Record<string, string> = {
   // PC
   "notebooky": "notebooky",
   "herne-konzoly": "herne-konzoly",
+  "hry": "videohry",
+  "videohry": "videohry",
   // spotrebiče
   "chladnicky": "domace-spotrebice",
   "digestory": "domace-spotrebice",

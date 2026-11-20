@@ -1,4 +1,4 @@
-import { generateText, isAiEnabled } from "@/lib/ai";
+import { generateFastJson, isAiEnabled } from "@/lib/ai";
 import { CATEGORY_TREE } from "@/lib/categories";
 
 /**
@@ -23,14 +23,15 @@ const CHILD_SLUGS = CATEGORY_TREE.flatMap((p) => (p.children ?? []).map((c) => c
 const VALID_SLUGS = new Set<string>([...ROOT_SLUGS, ...CHILD_SLUGS]);
 
 const BATCH_SIZE = 20;
-const MAX_BATCHES_PER_CALL = 2; // max ~40 inzeratov na jedno prebehnutie (casovy rozpocet)
+const MAX_BATCHES_PER_CALL = 5; // max ~100 inzeratov na jedno prebehnutie (r\u00fdchly model)
 const MAX_TOKENS = 3000;
 
 const SYSTEM_PROMPT =
   "Si expert na triedenie inzer\u00e1tov zo slovensk\u00fdch a \u010desk\u00fdch b\u00e1zarov do kateg\u00f3ri\u00ed. " +
   "Pre ka\u017ed\u00fd inzer\u00e1t ur\u010d\u00ed\u0161 JEDNU najvhodnej\u0161iu kateg\u00f3riu z danej ponuky slugov. " +
-  "V\u017edy preferuj konkr\u00e9tnu podkateg\u00f3riu (napr. smart-hodinky namiesto mobilne-telefony, ke\u010f sa jedn\u00e1 o hodinky). " +
-  "Pr\u00edslu\u0161enstvo patr\u00ed k produktu, ktor\u00e9ho sa t\u00fdka (kryt na iPhone \u2192 mobilne-telefony). " +
+  "V\u017edy preferuj konkr\u00e9tnu podkateg\u00f3riu (napr. smart-hodinky namiesto mobilne-telefony, ke\u010f sa jedn\u00e1 o hodinky, videogry namiesto herne-konzoly, ke\u010f sa jedn\u00e1 o hru). " +
+  "Pr\u00edslu\u0161enstvo zara\u010f do \u0161pecializovanej kateg\u00f3rie pod\u013ea typu produktu (kryt/obal/nab\u00edja\u010dka na telef\u00f3n \u2192 prislusenstvo-elektronika, disky/pneumatiky \u2192 pneumatiky-a-disky, diely auta \u2192 autodiely). " +
+  "Do osobne-automobily patria LEN cel\u00e9 osobn\u00e9 aut\u00e1, ni\u010d in\u00e9. " +
   "Odpovedaj V\u00ddHRADNE validn\u00fdm JSON v uvedenom tvare, bez \u010fal\u0161ieho textu.";
 
 function normalizeSlug(value: unknown): string | null {
@@ -131,7 +132,7 @@ export async function aiClassifyCategories(items: AIClassifyInput[]): Promise<AI
       `Odpovedz VÝHRADNE JSON v tvare: {"klasifikacie":[{"i":1,"k":"slug"}]} ` +
       `kde "i" je index inzerátu (číslo) a "k" je slug kategórie.`;
 
-    const gen = await generateText({ system: SYSTEM_PROMPT, prompt, json: true, maxTokens: MAX_TOKENS });
+    const gen = await generateFastJson({ system: SYSTEM_PROMPT, prompt, maxTokens: MAX_TOKENS });
     if (!gen.ok || !gen.text) return fail(gen.detail ?? null);
 
     const list = extractEntries(gen.text);
