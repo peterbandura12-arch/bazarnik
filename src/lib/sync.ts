@@ -229,6 +229,10 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             if (!item) continue;
             const betterId = categoryIds.get(slug);
             if (!betterId || betterId === item.currentSlug) continue;
+            // Pravidla maju prednost pred AI: ak by pravidlo AI navrhnutu
+            // kategoriu hned presunulo spat, AI navrh odmietneme (zabrani
+            // ping-pongu medzi pravidlami a AI medzi behmi).
+            if (refineCategoryByTitle(item.title, slug) !== slug) continue;
             const { error: aiErr } = await admin
               .from("external_listings")
               .update({ category_id: betterId })

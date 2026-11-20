@@ -34,8 +34,15 @@ const ACCESSORY_WORD_RE =
 const PHONE_MODEL_RE =
   /(iphone|\d+\s?gb|galaxy|xiaomi|redmi|huawei|pixel|motorola|nokia|xperia|samsung|oneplus|oppo|realme|honor|sony\s+(xperia|wh|wf))/i;
 
+// Mnozne tvary prislusenstva na konci titulku („IPhone 16e / 17e obaly") –
+// plural znamena, ze sa predava prislusenstvo, nie telefon.
+const ACCESSORY_END_PLURAL_RE =
+  /(\b|\s)(obaly|kryty|p\u00fazdra|puzdra|f\u00f3lie|folie|nab\u00edja\u010dky|nabijacky|adapt\u00e9ry|adaptery|dr\u017eiaky|drziaky|stojany|skl\u00e1|skla)\s*$/i;
+
 function isPhoneAccessory(title: string): boolean {
-  if (ACCESSORY_FIRST_TOKEN_RE.test(title)) return true;
+  const clean = title.trim().replace(/[.!?]+$/, "");
+  if (ACCESSORY_FIRST_TOKEN_RE.test(clean)) return true;
+  if (ACCESSORY_END_PLURAL_RE.test(clean)) return true;
   if (!ACCESSORY_WORD_RE.test(title)) return false;
   return !PHONE_MODEL_RE.test(title);
 }
@@ -46,7 +53,7 @@ const RULES: RefineRule[] = [
   {
     category: "videohry",
     test:
-      /(fifa\s?\d|pes\s?\d|gta\s?[3-6]|gta\s?v|minecraft|call\s?of\s?duty|need\s?for\s?speed|\bnfs\b|farming\s?simulator|forza|battlefield|assassin|tomb\s?raider|hierka|\bhra\b|playstation\s?[2-5]\s+hra|\bxbox\s+(360\s+|\d+\s+)?hra)/i,
+      /(fifa\s?\d|pes\s?\d|gta\s?[3-6]|gta\s?v|\bgta\b|grand\s?theft|minecraft|call\s?of\s?duty|need\s?for\s?speed|\bnfs\b|farming\s?simulator|forza|battlefield|assassin|tomb\s?raider|hierka|\bhra\b|playstation\s?[2-5]\s+hra|\bxbox\s+(360\s+|\d+\s+)?hra)/i,
     onlyIfIn: ["herne-konzoly", "pocitace-a-gaming", "herna-elektronika", "herne-prislusenstvo"],
   },
   // Herne konzoly (železo, nie hra ani príslušenstvo)
