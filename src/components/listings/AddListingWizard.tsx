@@ -9,6 +9,7 @@ import {
   Check,
   ImagePlus,
   Loader2,
+  Sparkles,
   Star,
   Trash2,
 } from "lucide-react";
@@ -30,6 +31,78 @@ interface PhotoItem {
   preview: string;
   isPrimary: boolean;
   focal?: { x: number; y: number };
+  enhanced?: boolean;
+}
+
+/**
+ * AI úprava fotky: automatické vyrovnanie jasu (histogram), jemné zvýraznenie
+ * kontrastu a farieb. Beží priamo v prehliadači cez canvas – rýchlo a bez čakania.
+ */
+async function enhancePhotoFile(file: File): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas");
+
+    // 1) Základné ladenie (jas, kontrast, sýtosť farieb).
+    ctx.filter = "brightness(1.04) contrast(1.07) saturate(1.14)";
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    ctx.filter = "none";
+
+    // 2) Auto-jas: jemné rozmontovanie histogramu (príliš tmavé/príliš svetlé fotky).
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const d = imageData.data;
+    const hist = new Uint32Array(256);
+    for (let p = 0; p < d.length; p += 4) {
+      const lum = Math.round(0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]);
+      hist[lum]++;
+    }
+    const total = w * h;
+    const cut = Math.max(1, Math.round(total * 0.005));
+    let lo = 0;
+    let hi = 255;
+    let acc = 0;
+    for (let v = 0; v < 256; v++) {
+      acc += hist[v];
+      if (acc > cut) {
+        lo = v;
+        break;
+      }
+    }
+    acc = 0;
+    for (let v = 255; v >= 0; v--) {
+      acc += hist[v];
+      if (acc > cut) {
+        hi = v;
+        break;
+      }
+    }
+    if (hi - lo > 30 && (lo > 6 || hi < 249)) {
+      const range = hi - lo;
+      for (let p = 0; p < d.length; p += 4) {
+        for (let c = 0; c < 3; c++) {
+          const v = d[p + c];
+          d[p + c] = Math.min(255, Math.max(0, ((v - lo) * 255) / range));
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9)
+    );
+    if (!blob) throw new Error("blob");
+    return new File([blob], file.name, { type: "image/jpeg" });
+  } finally {
+    bitmap.close();
+  }
 }
 
 /** Klientska analyza zaostrenia fotky (hrany + centroid), rovnaka logika ako na serveri v image-focus.ts */
@@ -104,6 +177,7 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
   const [phone, setPhone] = useState("");
   const [contactPreference, setContactPreference] = useState("chat");
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [enhancing, setEnhancing] = useState<number | "all" | null>(null);
 
   const parent = CATEGORY_TREE.find((c) => c.slug === parentCategory);
   const sub = parent?.children.find((c) => c.slug === subCategory);
@@ -170,6 +244,49 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
           ? parent.children[0]?.slug ?? ""
           : draft.categorySlug
       );
+    }
+  }
+
+  async function enhancePhoto(index: number) {
+    const photo = photos[index];
+    if (!photo || photo.enhanced || enhancing !== null) return;
+    setEnhancing(index);
+    try {
+      const file = await enhancePhotoFile(photo.file);
+      const preview = URL.createObjectURL(file);
+      const oldPreview = photo.preview;
+      setPhotos((p) =>
+        p.map((ph, j) => (j === index ? { ...ph, file, preview, enhanced: true } : ph))
+      );
+      URL.revokeObjectURL(oldPreview);
+    } catch {
+      setError("Fotku sa nepodarilo automaticky upraviť, skúste to znova.");
+    } finally {
+      setEnhancing(null);
+    }
+  }
+
+  async function enhanceAllPhotos() {
+    if (enhancing !== null) return;
+    setEnhancing("all");
+    try {
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        if (!photo || photo.enhanced) continue;
+        try {
+          const file = await enhancePhotoFile(photo.file);
+          const preview = URL.createObjectURL(file);
+          const oldPreview = photo.preview;
+          setPhotos((p) =>
+            p.map((ph, j) => (j === i ? { ...ph, file, preview, enhanced: true } : ph))
+          );
+          URL.revokeObjectURL(oldPreview);
+        } catch {
+          // jednu fotku preskočíme, pokračujeme s ďalšími
+        }
+      }
+    } finally {
+      setEnhancing(null);
     }
   }
 
@@ -389,7 +506,30 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
             </label>
 
             {photos.length > 0 && (
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <>
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-brand-50 px-3 py-2.5">
+                  <Sparkles className="h-4 w-4 shrink-0 text-violet-600" />
+                  <span className="flex-1 text-xs text-ink-600">
+                    <strong className="text-ink-800">AI úprava fotiek:</strong> automaticky vylepší
+                    jas, kontrast a farby, aby inzerát vyzeral výraznejšie.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void enhanceAllPhotos()}
+                    disabled={enhancing !== null || photos.every((ph) => ph.enhanced)}
+                    className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-600 to-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 active:scale-95 disabled:opacity-40"
+                  >
+                    {enhancing === "all" ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> upravujem všetky…
+                      </>
+                    ) : (
+                      <>Vylepšiť všetky fotky</>
+                    )}
+                  </button>
+                </div>
+
+                <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {photos.map((photo, i) => (
                   <li key={photo.preview} className="overflow-hidden rounded-lg border border-ink-200">
                     <div className="relative aspect-[4/3] bg-ink-100">
@@ -408,6 +548,11 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
                       {photo.isPrimary && (
                         <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-bold text-white">
                           <Star className="h-3 w-3" /> Hlavná
+                        </span>
+                      )}
+                      {photo.enhanced && (
+                        <span className="absolute right-1 top-1 flex items-center gap-1 rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                          <Sparkles className="h-3 w-3" /> AI upravené
                         </span>
                       )}
                     </div>
@@ -435,6 +580,20 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
                       <div className="flex gap-1">
                         <button
                           type="button"
+                          onClick={() => void enhancePhoto(i)}
+                          disabled={photo.enhanced || enhancing !== null}
+                          aria-label="AI vylepšiť fotografiu"
+                          title="AI vylepšiť fotku (jas, kontrast, farby)"
+                          className="rounded p-1 text-violet-600 hover:bg-violet-50 disabled:opacity-30"
+                        >
+                          {enhancing === i ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() =>
                             setPhotos((p) => p.map((ph, j) => ({ ...ph, isPrimary: j === i })))
                           }
@@ -457,7 +616,8 @@ export function AddListingWizard({ userEmail }: { userEmail: string }) {
                     </div>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </>
             )}
           </div>
         )}
