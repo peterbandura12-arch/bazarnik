@@ -281,7 +281,7 @@ function parseAndNormalize(html) {
     if (!title) continue;
 
     const description = p.description
-      ? decodeEntities(String(p.description)).replace(/\s+/g, " ").trim() || null
+      ? decodeEntities(String(p.description)).replace(/\s+/g, " ").trim().slice(0, 8000) || null
       : null;
 
     // Inzeraty bez fotky sa nezobrazuju - preskocime ich.

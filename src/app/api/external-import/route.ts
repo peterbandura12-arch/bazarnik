@@ -19,7 +19,7 @@ const itemSchema = z.object({
   externalId: z.string().min(1).max(120),
   url: z.string().url().max(2048),
   title: z.string().min(1).max(400),
-  description: z.string().max(8000).nullable().optional(),
+  description: z.string().max(12000).nullable().optional(),
   price: z.number().nullable().optional(),
   currency: z.string().optional(),
   location: z.string().max(160).nullable().optional(),
