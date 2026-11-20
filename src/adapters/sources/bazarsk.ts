@@ -269,6 +269,35 @@ interface CardInfo {
 }
 
 /**
+ * Tolerantné JSON.parse – Bazar.sk vkladá do JSON-LD surové riadiace znaky
+ * (odradkovania) a občas aj neescapované úvodzovky v popise (napr. 19"/20"),
+ * ktoré zamietne klasický JSON.parse. Riadiace znaky nahradíme medzerou a
+ * chýbajúce spätné lomky dodáme iteratívne podľa pozícií chýb parseera.
+ */
+function tolerantJsonParse(input: string): unknown | null {
+  let s = input;
+  for (let attempt = 0; attempt < 150; attempt++) {
+    try {
+      return JSON.parse(s);
+    } catch (err) {
+      const pos = /position (\d+)/.exec(err instanceof Error ? err.message : "");
+      if (!pos) return null;
+      const p = Number(pos[1]);
+      let q = -1;
+      for (let i = p; i >= Math.max(0, p - 60); i--) {
+        if (s[i] === '"') {
+          q = i;
+          break;
+        }
+      }
+      if (q < 0) return null;
+      s = `${s.slice(0, q)}\\"${s.slice(q + 1)}`;
+    }
+  }
+  return null;
+}
+
+/**
  * JSON-LD bloky majú v popisoch surové riadiace znaky (odradkovania),
  * ktoré zamietne klasické JSON.parse. Nahradíme ich medzerou – štruktúra
  * JSON zostane zachovaná a parsovanie prejde.
@@ -277,34 +306,35 @@ function parseJsonLdProducts(html: string): SchemaProduct[] {
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)];
   for (const block of blocks) {
     const sanitized = block[1].replace(/[\u0000-\u001f]/g, " ");
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(sanitized);
-    } catch {
-      continue;
-    }
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const obj = parsed as { "@type"?: unknown; itemListElement?: unknown };
-      if (obj["@type"] === "ItemList" && Array.isArray(obj.itemListElement)) {
-        return (obj.itemListElement as Array<{ item?: SchemaProduct }>)
-          .map((entry) => entry.item)
-          .filter((item): item is SchemaProduct => Boolean(item?.name && item?.offers));
-      }
+    const parsed = tolerantJsonParse(sanitized);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
+    const obj = parsed as { "@type"?: unknown; itemListElement?: unknown };
+    if (obj["@type"] === "ItemList" && Array.isArray(obj.itemListElement)) {
+      return (obj.itemListElement as Array<{ item?: SchemaProduct }>)
+        .map((entry) => entry.item)
+        .filter((item): item is SchemaProduct => Boolean(item?.name && item?.offers));
     }
   }
   return [];
 }
 
 /**
- * Z verejných kariet inzerátov (hmr-primary) vyzvedne lokalitu a podkategóriu.
- * Každá karta je vyznačená `data-id`, lokalita je v neviditeľnom riadku
- * (span.location) – číta sa len to, čo si obyčajný návštevník vidí.
+ * Z verejných kariet inzerátov vyzvedne lokalitu a podkategóriu.
+ * Každá karta (aj nepromo) obsahuje obľúbené tlačidlo
+ * `<span class="badge-heart..." data-id="ID">` – to je spoľahlivá kotva.
+ * Promo karty navyše majú `hmr-primary`, tie sú len niekoľko.
  */
 function extractCardInfo(html: string): Map<string, CardInfo> {
   const info = new Map<string, CardInfo>();
-  const starts = [...html.matchAll(/<div class="hmr-primary" data-id="(\d+)">/gi)].map(
+  let starts = [...html.matchAll(/<span class="badge-heart[^"]*" data-id="(\d+)"/gi)].map(
     (m) => ({ id: m[1], index: m.index ?? 0 })
   );
+  if (starts.length === 0) {
+    // Rezervný variant, keby Bazar.sk zmenil markup obľúbených tlačidiel.
+    starts = [...html.matchAll(/<div class="hmr-primary" data-id="(\d+)">/gi)].map(
+      (m) => ({ id: m[1], index: m.index ?? 0 })
+    );
+  }
   for (let i = 0; i < starts.length; i++) {
     const from = starts[i].index;
     const to = i + 1 < starts.length ? starts[i + 1].index : Math.min(html.length, from + 40_000);

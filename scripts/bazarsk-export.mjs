@@ -209,16 +209,41 @@ function decodeEntities(input) {
     .trim();
 }
 
+/**
+ * Tolerantne JSON.parse - Bazar.sk vklada do JSON-LD surove riadiace znaky
+ * a obcas aj neescapovane uvodzovky v popise (napr. 19"/20"), ktore zamietne
+ * klasicky JSON.parse. Riadiace znaky nahradime medzerou a chýbajúce spätne
+ * lomky dodame iterativne podla poziici chyb parsera.
+ */
+function tolerantJsonParse(input) {
+  let s = input;
+  for (let attempt = 0; attempt < 150; attempt++) {
+    try {
+      return JSON.parse(s);
+    } catch (err) {
+      const pos = /position (\d+)/.exec(String(err && err.message ? err.message : ""));
+      if (!pos) return null;
+      const p = Number(pos[1]);
+      let q = -1;
+      for (let i = p; i >= Math.max(0, p - 60); i--) {
+        if (s[i] === '"') {
+          q = i;
+          break;
+        }
+      }
+      if (q < 0) return null;
+      s = `${s.slice(0, q)}\\"${s.slice(q + 1)}`;
+    }
+  }
+  return null;
+}
+
 function parseJsonLdProducts(html) {
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)];
   for (const block of blocks) {
     const sanitized = block[1].replace(/[\u0000-\u001f]/g, " ");
-    let parsed;
-    try {
-      parsed = JSON.parse(sanitized);
-    } catch {
-      continue;
-    }
+    const parsed = tolerantJsonParse(sanitized);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed["@type"] === "ItemList") {
       if (Array.isArray(parsed.itemListElement)) {
         return parsed.itemListElement
@@ -231,13 +256,22 @@ function parseJsonLdProducts(html) {
 }
 
 /**
- * Z verejnych kariet inzeratov (hmr-primary) vyzvedne lokalitu a podkategoriu.
+ * Z verejnych kariet inzeratov vyzvedne lokalitu a podkategoriu.
+ * Kazda karta (aj nepromo) obsahuje oblubene tlacidlo
+ * `<span class="badge-heart..." data-id="ID">` - to je spolahliva kotva.
+ * Promo karty navyse maju hmr-primary, tych je len niekolko.
  */
 function extractCardInfo(html) {
   const info = new Map();
-  const starts = [...html.matchAll(/<div class="hmr-primary" data-id="(\d+)">/gi)].map(
+  let starts = [...html.matchAll(/<span class="badge-heart[^"]*" data-id="(\d+)"/gi)].map(
     (m) => ({ id: m[1], index: m.index ?? 0 })
   );
+  if (starts.length === 0) {
+    // Rezervny variant, keby Bazar.sk zmenil markup oblubenych tlacidiel.
+    starts = [...html.matchAll(/<div class="hmr-primary" data-id="(\d+)">/gi)].map(
+      (m) => ({ id: m[1], index: m.index ?? 0 })
+    );
+  }
   for (let i = 0; i < starts.length; i++) {
     const from = starts[i].index;
     const to = i + 1 < starts.length ? starts[i + 1].index : Math.min(html.length, from + 40000);
