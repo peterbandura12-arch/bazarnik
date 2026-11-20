@@ -98,8 +98,17 @@ async function handle(request: Request) {
   let errors = 0;
 
   for (const item of items) {
-    // Inzeráty bez fotky sa nezobrazujú – preskočíme ich.
-    if (!item.imageUrl) continue;
+    // Inzeráty bez fotky a bez polohy sa neprijímajú vôbec – preskočíme ich.
+    if (!item.imageUrl || !item.location) {
+      const existingDead = existingMap.get(item.externalId);
+      if (existingDead) {
+        await admin
+          .from("external_listings")
+          .update({ is_available: false })
+          .eq("id", existingDead.id);
+      }
+      continue;
+    }
     const contentHash = createHash("sha256")
       .update(`${item.title}|${item.price ?? ""}|${item.url}`)
       .digest("hex");
