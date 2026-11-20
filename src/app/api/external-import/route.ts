@@ -72,15 +72,23 @@ async function handle(request: Request) {
   const categoryIds = new Map((categories ?? []).map((c) => [c.slug, c.id]));
 
   // existujúce inzeráty podľa external_id
-  const existingMap = new Map<string, { id: string; content_hash: string | null }>();
+  const existingMap = new Map<
+    string,
+    { id: string; content_hash: string | null; category_id: string | null; location: string | null }
+  >();
   for (let i = 0; i < items.length; i += 200) {
     const { data: rows } = await admin
       .from("external_listings")
-      .select("id, external_id, content_hash")
+      .select("id, external_id, content_hash, category_id, location")
       .eq("source_id", source.id)
       .in("external_id", items.slice(i, i + 200).map((it) => it.externalId));
     for (const row of rows ?? []) {
-      existingMap.set(row.external_id, { id: row.id, content_hash: row.content_hash });
+      existingMap.set(row.external_id, {
+        id: row.id,
+        content_hash: row.content_hash,
+        category_id: row.category_id,
+        location: row.location,
+      });
     }
   }
 
@@ -103,7 +111,8 @@ async function handle(request: Request) {
     const existing = existingMap.get(item.externalId);
 
     if (existing) {
-      if (existing.content_hash !== contentHash) {
+      const metaChanged = existing.category_id !== categoryId || existing.location !== (item.location ?? null);
+      if (metaChanged || existing.content_hash !== contentHash) {
         const { error } = await admin
           .from("external_listings")
           .update({
