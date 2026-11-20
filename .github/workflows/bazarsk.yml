@@ -1,0 +1,17 @@
+name: Bazar.sk import
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  bazarsk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Bazar.sk structured data and import
+        run: node scripts/bazarsk-export.mjs
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BAZARNIK_URL: https://bazarnik.vercel.app
