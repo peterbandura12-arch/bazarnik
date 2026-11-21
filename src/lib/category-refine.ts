@@ -144,7 +144,7 @@ export const RULES: RefineRule[] = [
   {
     category: "pneumatiky-a-disky",
     test:
-      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie|\balu\b|\bfelg|\br1[3-9]\b|5x1[0-2]\d|styling\s+\d|\d{3}[\/]\d{2}[\/\s][a-z]?\s?\d{1,2}|\d{3}\s\d{2}\s[a-z]?\d{1,2}|pi?relli|\btaurus\b|barum|bridgestone|hankook|kormoran|goodyear|\bdunlop\b|\bfulda\b|nexen|nokian|\bopona\b|toyo\b|elektron|letn.{0,14}sada|zimn.{0,14}sada|sada\s+(zimn|letn|disk|kolies|gum))/i,
+      /(koles|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie|\balu\b|\bfelg|dojazd|\br1[3-9]\b|5x1[0-2]\d|styling\s+\d|\d{3}[\/]\d{2}[\/\s][a-z]?\s?\d{1,2}|\d{3}\s\d{2}\s[a-z]?\d{1,2}|pi?relli|\btaurus\b|barum|bridgestone|hankook|kormoran|goodyear|\bdunlop\b|\bfulda\b|nexen|nokian|\bopona\b|toyo\b|elektron|letn.{0,14}sada|zimn.{0,14}sada|sada\s+(zimn|letn|disk|kolies|gum))/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Prívesné vozíky nie sú osobné auto
