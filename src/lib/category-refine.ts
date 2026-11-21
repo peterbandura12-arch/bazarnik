@@ -92,8 +92,8 @@ const RULES: RefineRule[] = [
   {
     category: "domace-spotrebice",
     test:
-      /(vysávač|vysavac|robotický vys|pračk|prack|sušičk|mrazničk|chladničk|spin[áa]ck|umývačk|umyvack|sporák|sporak|mikrovlnn|žehlič)/i,
-    onlyIfIn: ["elektronika", "dom-a-zahrada", "nabytok"],
+      /(vysávač|vysavac|tlaková\s+sprcha|tlakova\s+sprch|expedičn|mikrovln|robotický vys|pračk|prack|sušičk|mrazničk|chladničk|spin[áa]ck|umývačk|umyvack|sporák|sporak|mikrovlnn|žehlič)/i,
+    onlyIfIn: ["elektronika", "dom-a-zahrada", "nabytok", "osobne-automobily"],
   },
   // Kuchynské vybavenie
   {
@@ -168,7 +168,7 @@ const RULES: RefineRule[] = [
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
+      /(prevodovk|altern[áa]tor|rozvod|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Diely motocyklov nie sú motocykel
@@ -182,7 +182,7 @@ const RULES: RefineRule[] = [
   {
     category: "autoprislusenstvo",
     test:
-      /(koberec|koberce|roho[\u017ez]|kryty|kryt\s+|po?tah|kufor\s+auta|dekor|diagnostk|kamera\s+do\s+auta|palubn|termopast|glyc[ée]r|aditív|roletk|št[ií]t|nab[ií]ja|nosič|nosić|nosi|veko|lyžin)/i,
+      /(koberec|koberce|roho[\u017ez]|kryty|kryt\s+|po?tah|kufor\s+auta|dekor|diagnostk|kamera\s+do\s+auta|palubn|termopast|glyc[ée]r|aditív|roletk|št[ií]t|nab[ií]ja|nosič|nosić|nosi|veko|lyžin|\bkufra\b|vyplň)/i,
     onlyIfIn: ["osobne-automobily"],
   },
   // Šperky a bižutéria (Pandora náramky nie sú oblečenie)
