@@ -92,7 +92,7 @@ const RULES: RefineRule[] = [
   {
     category: "domace-spotrebice",
     test:
-      /(vysávač|vysavac|tlaková\s+sprcha|tlakova\s+sprch|expedičn|mikrovln|robotický vys|pračk|prack|sušičk|mrazničk|chladničk|spin[áa]ck|umývačk|umyvack|sporák|sporak|mikrovlnn|žehlič)/i,
+      /(vysávač|vysavac|tlak\w*\s+sprch|sprch\w*\s+tlak|expedičn|expedičn|mikrovln|robotický vys|pračk|prack|sušičk|mrazničk|chladničk|spin[áa]ck|umývačk|umyvack|sporák|sporak|mikrovlnn|žehlič)/i,
     onlyIfIn: ["elektronika", "dom-a-zahrada", "nabytok", "osobne-automobily"],
   },
   // Kuchynské vybavenie
@@ -168,7 +168,7 @@ const RULES: RefineRule[] = [
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvod|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
+      /(prevodovk|altern[áa]tor|rozvod|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|svetl|smerovk|piston|wiseco|piest|n[aá]drž|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Diely motocyklov nie sú motocykel
