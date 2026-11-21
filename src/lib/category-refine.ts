@@ -60,7 +60,7 @@ function isPhoneAccessory(title: string): boolean {
 // Vsetko ostatne patri do dielov, prislusenstva, pneu, dodavok atd. -
 // o to sa postara posledne (fallback) pravidlo v RULES.
 
-const CAR_BRAND_RE = /(audi|bmw|citro[eë]n|dacia|fiat|ford|honda|hyundai|kia|mazda|mercedes|\bmb\b| mitsubishi|nissan|opel|peugeot|renault|seat|škoda|skoda|toyota|volkswagen|\bvw\b| volvo|subaru|suzuki|alfa\s?romeo|\balfa\b|chevrolet|chrysler|dodge|\bds\b|jeep| land\s?rover|range\s?rover|lexus|\bmini\b|porsche|\bsmart\b|tesla| lancia|bentley|ferrari|maserati|lamborghini|jaguar|infiniti|daihatsu|isuzu|\bsaab\b| cupra|polestar|hummer|caravelle|multivan|\blada\b)/i;
+const CAR_BRAND_RE = /(audi|bmw|citro[eë]n|dacia|fiat|ford|honda|hyundai|kia|mazda|mercedes|\bmb\b| mitsubishi|nissan|opel|peugeot|renault|seat|škoda|skoda|toyota|volkswagen|\bvw\b| volvo|subaru|suzuki|alfa\s?romeo|\balfa\b|chevrolet|chrysler|dodge|\bds\b|jeep| rover|evoque|velar|discovery|land\s?cruiser|lexus|\bmini\b|porsche|\bsmart\b|tesla| lancia|bentley|ferrari|maserati|lamborghini|jaguar|infiniti|daihatsu|isuzu|\bsaab\b| cupra|polestar|hummer|caravelle|multivan|\blada\b)/i;
 
 const CAR_MODEL_RE = /(golf|octavia|fabia|superb|kodiaq|karoq|kamiq|yeti|rapid|scala|polo|tiguan|passat| touran|sharan|touareg|arteon|taigo|taos|\bup\b|avant|focus|mondeo|fiesta|kuga|puma| s-?max|galaxy|escort|astra|corsa|mokka|insignia|zafira|vectra|cascada|meriva|agila|antara| ampera|kadett|clio|megane|captur|scenic|kadjar|talisman|espace|twingo|laguna|thalia|logan| duster|sandero|lodgy|dokker|yaris|auris|corolla|avensis|prius|rav-?4|hilux|camry|celica| aygo|c-?hr|cr-?v|hr-?v|civic|accord|jazz|insight|cx-?\d|mx-?\d|mazda\s*[2-9]|demio|626| sportage|c-?eed|picanto|\brio\b|venga|sorento|nata?iva|stonic|xceed|i10|i20|i30|ix35|ix20| tucson|santa\s?fe|getz|accent|ibiza|leon|arona|ateca|toledo|exeo|alhambra|altea|punto|panda| \b500\b|doblo|bravo|stilo|swift|vitara|sx4|ignis|baleno|jimny|micra|qashqai|juke|x-?trail| \bnote\b|almera|navara|patrol|asx|outlander|\bl200\b|pajero|colt|lancer|space\s?star| forester|outback|impreza|\bxv\b|legacy|\bbrz\b|\bs40\b|\bs60\b|\bs80\b|\bs90\b| \bv40\b|\bv50\b|\bv60\b|\bv70\b|xc60|xc70|xc90|\bc30\b|\bc70\b|cayenne|macan| \b911\b|boxster|panamera|cayman|taycan|cooper|c1\b|c2\b|\bc3\b|\bc4\b|\bc5\b|\bc8\b| c-?elysee|picasso|ds[3-7]|model\s?[3sxy]|mokka|land\s?cruiser|\ba[1-9]\b|\bq[2-8]\b|\brs[2-8]\b|\btt\b|\bm[2-8]\b|[1-7]\d{2}\s?(d|di|i|li|xi|dx|cd)\b|\b(w|s|e|g|cls|ml|gl[a-z]|slk)\s?\d{2,3}\b)/i;
 
@@ -69,7 +69,7 @@ const CAR_META_RE = /(r\.?\s?v|ročn[iík]|\b(19[89]\d|20[0-2]\d)\s?r?\.?\b| \d\
 const CAR_DESC_RE =
   /(("\d{1,3}\s?000\s?km)|najazd|\bstk|evč|\b1\.?\s?majite|servisn[aá] kniha|službn[aá] kniha|automat|klimatiz|navig[ao])/i;
 
-function isMaybeWholeCar(title: string, description?: string | null): boolean {
+export function isMaybeWholeCar(title: string, description?: string | null): boolean {
   if (
     CAR_BRAND_RE.test(title) ||
     CAR_MODEL_RE.test(title) ||
@@ -190,20 +190,20 @@ export const RULES: RefineRule[] = [
   // Dodávky a dodávkové modely nie sú osobné auto
   {
     category: "dodavky",
-    test: /(movano|\bmaster\b|\bboxer\b|ducato|trafic|talento|transit|\bvito\b|viano|kangoo|berlingo|\bpartner\b|caddy|multivan|caravelle|transporter|\bt[3456]\b|dod[aá]vk|furgon|\bproace\b|\btraveller\b|\b[89]\s?miest|\b9miest)/i,
+    test: /(movano|\bmaster\b|\bboxer\b|ducato|trafic|talento|transit|\bvito\b|viano|kangoo|berlingo|\bpartner\b|caddy|multivan|caravelle|transporter|\bt[3456]\b|dod[aá]vk|furgon|\bcombo\b|daily|eurocargo|\bproace\b|\btraveller\b|\b[89]\s?miest|\b9miest)/i,
     onlyIfIn: ["osobne-automobily", "uzitkove-vozidla"],
   },
   // Užitkové/nákladné vozidlá (kippery, valníky…) nie sú osobné auto
   {
     category: "uzitkove-vozidla",
-    test: /(kipper|kamion|\bvalník|sklápač|\bnákladn)/i,
+    test: /(kipper|kamion|\bavia\b|kontajner|\bvalník|sklápač|\bnákladn)/i,
     onlyIfIn: ["osobne-automobily", "dodavky"],
   },
   // Diely a príslušenstvo nie sú osobné auto (motor, prevodovka, brzdy, dvere…)
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvod|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|svetl|smerovk|piston|wiseco|piest|n[aá]drž|podtlak|turba|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|odn[ií]m[aá]te|odnim|t[aá]hov|h[aá]k\s*(?:na\s|\d)|\bhlav|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
+      /(prevodovk|altern[áa]tor|rozvod|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|svetl|smerovk|piston|wiseco|piest|n[aá]drž|podtlak|turba|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|odn[ií]m[aá]te|odnim|t[aá]hov|h[aá]k\s*(?:na\s|\d)|\bhlav|hmlovk|spojkov|cievk|potrub|krytk|puklic|štartér|štarter|starter|servo|ped[aá]l|poloos|\bdpf\b|display|obrazovk|monitor|trysk|ostrekov|reprodukt|autor[aá]dio|hadic|v[aá]ha|vaňa|\bmaska?\b|podlo[zž]k|strmeň|strmen|blatn|deflekt|prahov|lišt|svieten|rampa|rem[eň]|\bkufor\b|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
             descTest:
       /(rozpred|\bn[aá]hradn[ée]?\s+diel|\bdielcov?\b|\bdiely\b|\bdielov\b|\bn[aá]razn[ií]?k|\bhlav[aáey])/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
