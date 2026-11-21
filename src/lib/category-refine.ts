@@ -14,7 +14,7 @@
 interface RefineRule {
   category: string;
   /** Regex alebo funkčný test (pre pravidlá, ktoré samotný regex nezvládne). */
-  test: RegExp | ((title: string) => boolean);
+  test: RegExp | ((title: string, description?: string | null) => boolean);
   /**
    * Voliteľný test nad POPISOM inzerátu. Má vnýmorne vysoké požiadavky na
    * presnosť – popis celého auta často spomína vybavenie („brzdy nové,
@@ -52,6 +52,33 @@ function isPhoneAccessory(title: string): boolean {
   if (ACCESSORY_END_PLURAL_RE.test(clean)) return true;
   if (!ACCESSORY_WORD_RE.test(title)) return false;
   return !PHONE_MODEL_RE.test(title);
+}
+
+// ---------------------------------------------------------------------------
+// WHITELIST celeho auta: v osobnych automobiloch nechavame IBA cele auta.
+// Titulok musi pripominat cele auto (znacka, model, rocnik, motor, kW...).
+// Vsetko ostatne patri do dielov, prislusenstva, pneu, dodavok atd. -
+// o to sa postara posledne (fallback) pravidlo v RULES.
+
+const CAR_BRAND_RE = /(audi|bmw|citro[eë]n|dacia|fiat|ford|honda|hyundai|kia|mazda|mercedes|\bmb\b| mitsubishi|nissan|opel|peugeot|renault|seat|škoda|skoda|toyota|volkswagen|\bvw\b| volvo|subaru|suzuki|alfa\s?romeo|\balfa\b|chevrolet|chrysler|dodge|\bds\b|jeep| land\s?rover|range\s?rover|lexus|\bmini\b|porsche|\bsmart\b|tesla| lancia|bentley|ferrari|maserati|lamborghini|jaguar|infiniti|daihatsu|isuzu|\bsaab\b| cupra|polestar|hummer|caravelle|multivan|\blada\b)/i;
+
+const CAR_MODEL_RE = /(golf|octavia|fabia|superb|kodiaq|karoq|kamiq|yeti|rapid|scala|polo|tiguan|passat| touran|sharan|touareg|arteon|taigo|taos|\bup\b|avant|focus|mondeo|fiesta|kuga|puma| s-?max|galaxy|escort|astra|corsa|mokka|insignia|zafira|vectra|cascada|meriva|agila|antara| ampera|kadett|clio|megane|captur|scenic|kadjar|talisman|espace|twingo|laguna|thalia|logan| duster|sandero|lodgy|dokker|yaris|auris|corolla|avensis|prius|rav-?4|hilux|camry|celica| aygo|c-?hr|cr-?v|hr-?v|civic|accord|jazz|insight|cx-?\d|mx-?\d|mazda\s*[2-9]|demio|626| sportage|c-?eed|picanto|\brio\b|venga|sorento|nata?iva|stonic|xceed|i10|i20|i30|ix35|ix20| tucson|santa\s?fe|getz|accent|ibiza|leon|arona|ateca|toledo|exeo|alhambra|altea|punto|panda| \b500\b|doblo|bravo|stilo|swift|vitara|sx4|ignis|baleno|jimny|micra|qashqai|juke|x-?trail| \bnote\b|almera|navara|patrol|asx|outlander|\bl200\b|pajero|colt|lancer|space\s?star| forester|outback|impreza|\bxv\b|legacy|\bbrz\b|\bs40\b|\bs60\b|\bs80\b|\bs90\b| \bv40\b|\bv50\b|\bv60\b|\bv70\b|xc60|xc70|xc90|\bc30\b|\bc70\b|cayenne|macan| \b911\b|boxster|panamera|cayman|taycan|cooper|c1\b|c2\b|\bc3\b|\bc4\b|\bc5\b|\bc8\b| c-?elysee|picasso|ds[3-7]|model\s?[3sxy]|mokka|land\s?cruiser|\ba[1-9]\b|\bq[2-8]\b|\brs[2-8]\b|\btt\b|\bm[2-8]\b|[1-7]\d{2}\s?(d|di|i|li|xi|dx|cd)\b|\b(w|s|e|g|cls|ml|gl[a-z]|slk)\s?\d{2,3}\b)/i;
+
+const CAR_META_RE = /(r\.?\s?v|ročn[iík]|\b(19[89]\d|20[0-2]\d)\s?r?\.?\b| \d\.?\d\s?(tdi|dci|cdi|tsi|mpi|tfsi|hdi|crdi|jtd|d4d|16v|8v|12v|24v)| \btdi\b|\bdci\b|\btsi\b|\btfsi\b|\bcdi\b|\bhdi\b|\bgtd\b|\bgti\b|\bphev\b|\bgte\b| \d{2,3}\s?kW\b|\b(automat|manu[áa]l|manual|benz[inín]|diesel|nafta| karavan|kombi|sedan|kabri|hatchback|coup[ée]?|ter[ée]n)\b)/i;
+
+const CAR_DESC_RE =
+  /(("\d{1,3}\s?000\s?km)|najazd|\bstk|evč|\b1\.?\s?majite|servisn[aá] kniha|službn[aá] kniha|automat|klimatiz|navig[ao])/i;
+
+function isMaybeWholeCar(title: string, description?: string | null): boolean {
+  if (
+    CAR_BRAND_RE.test(title) ||
+    CAR_MODEL_RE.test(title) ||
+    CAR_META_RE.test(title)
+  ) {
+    return true;
+  }
+  const desc = (description ?? "").trim();
+  return desc !== "" && CAR_DESC_RE.test(desc);
 }
 
 /** @internal Exports pre testovanie. */
@@ -208,6 +235,14 @@ export const RULES: RefineRule[] = [
       /(elektrick[ýáé].{0,20}(kolobežk|skúter|scooter)|e-?scooter|ninebot|segway|xiaomi\s+scooter|m365)/i,
     onlyIfIn: ["sport-a-outdoor", "sportove-vybavenie", "deti-a-hracky", "hracky", "elektronika", "cyklistika"],
   },
+  // Posledna istota (fallback): v osobnych automobiloch nechavame IBA
+  // cele auta. Ked titulok nepodobne sa na cele auto, ide o diel alebo
+  // prislusenstvo a presunieme ho do autodielov.
+  {
+    category: "autodiely",
+    test: (title, description) => !isMaybeWholeCar(title, description),
+    onlyIfIn: ["osobne-automobily"],
+  },
 ];
 
 /**
@@ -224,7 +259,9 @@ export function refineCategoryByTitle(
   for (const rule of RULES) {
     if (!rule.onlyIfIn.includes(categorySlug)) continue;
     const hit =
-      typeof rule.test === "function" ? rule.test(title) : rule.test.test(title);
+      typeof rule.test === "function"
+        ? rule.test(title, desc)
+        : rule.test.test(title);
     const descHit = !hit && desc !== "" && rule.descTest?.test(desc) === true;
     if (hit || descHit) return rule.category;
   }

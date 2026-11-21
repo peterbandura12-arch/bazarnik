@@ -212,10 +212,28 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             imageUrl: row.image_url ?? null,
           }));
 
-          // priorita: 1) bez kategorie, 2) najnovsi
+          // priorita: 1) bez kategorie, 2) osobne automobily (tam je najvacsi
+          // gulas, AI ich overuje cielene), 3) najnovsi
+          const carId = categoryIds.get("osobne-automobily") ?? "__none__";
+          const { data: carData } = await admin
+            .from("external_listings")
+            .select("id, title, description, category_id, image_url")
+            .eq("source_id", source.id)
+            .eq("category_id", carId)
+            .order("fetched_at", { ascending: true })
+            .limit(45);
+          const carItems = (carData ?? []).map((row) => ({
+            id: row.id,
+            title: row.title,
+            description: row.description,
+            currentSlug: row.category_id ? slugById.get(row.category_id) ?? null : null,
+            imageUrl: row.image_url ?? null,
+          }));
+          const carIds = new Set(carItems.map((c) => c.id));
           const ordered = [
             ...pool.filter((p) => !p.currentSlug),
-            ...pool.filter((p) => p.currentSlug),
+            ...carItems,
+            ...pool.filter((p) => p.currentSlug && !carIds.has(p.id)),
           ].slice(0, 60);
           aiChecked = ordered.length;
 
