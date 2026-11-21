@@ -84,7 +84,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
           .digest("hex");
 
         const categoryId = item.categorySlug
-          ? categoryIds.get(refineCategoryByTitle(item.title, item.categorySlug)) ?? null
+          ? categoryIds.get(refineCategoryByTitle(item.title, item.categorySlug, item.description)) ?? null
           : null;
 
         const existing = existingMap.get(item.externalId);
@@ -164,7 +164,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
       for (let offset = 0; offset < 20000; offset += REFINE_BATCH) {
         const { data: forRefine } = await admin
           .from("external_listings")
-          .select("id, title, category_id")
+          .select("id, title, description, category_id")
           .eq("source_id", source.id)
           .order("fetched_at", { ascending: true })
           .range(offset, offset + REFINE_BATCH - 1);
@@ -172,7 +172,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
         scanned += forRefine.length;
         for (const row of forRefine) {
           const currentSlug = row.category_id ? slugById.get(row.category_id) ?? null : null;
-          const better = refineCategoryByTitle(row.title, currentSlug);
+          const better = refineCategoryByTitle(row.title, currentSlug, row.description);
           if (better && better !== currentSlug) {
             const betterId = categoryIds.get(better);
             if (betterId) {
@@ -232,7 +232,7 @@ export async function runSync(): Promise<{ ok: true; summary: SyncSourceSummary[
             // Pravidla maju prednost pred AI: ak by pravidlo AI navrhnutu
             // kategoriu hned presunulo spat, AI navrh odmietneme (zabrani
             // ping-pongu medzi pravidlami a AI medzi behmi).
-            if (refineCategoryByTitle(item.title, slug) !== slug) continue;
+            if (refineCategoryByTitle(item.title, slug, item.description) !== slug) continue;
             const { error: aiErr } = await admin
               .from("external_listings")
               .update({ category_id: betterId })

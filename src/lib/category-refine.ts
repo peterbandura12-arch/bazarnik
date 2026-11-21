@@ -15,6 +15,13 @@ interface RefineRule {
   category: string;
   /** Regex alebo funkčný test (pre pravidlá, ktoré samotný regex nezvládne). */
   test: RegExp | ((title: string) => boolean);
+  /**
+   * Voliteľný test nad POPISOM inzerátu. Má vnýmorne vysoké požiadavky na
+   * presnosť – popis celého auta často spomína vybavenie („brzdy nové,
+   * airbag“), takže sem patria len tokeny, ktoré sa v inzerátoch celých
+   * aut prakticky nevyskytujú.
+   */
+  descTest?: RegExp;
   onlyIfIn: string[];
 }
 
@@ -169,7 +176,9 @@ export const RULES: RefineRule[] = [
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvod|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|svetl|smerovk|piston|wiseco|piest|n[aá]drž|podtlak|turba|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
+      /(prevodovk|altern[áa]tor|rozvod|\bturbo\b|brzd|diferenci|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|svetl|smerovk|piston|wiseco|piest|n[aá]drž|podtlak|turba|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver|kapot|\btlmi|amortiz|závesn|clonitk|vstrekova|\bscania\b|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|odn[ií]m[aá]te|odnim|t[aá]hov|h[aá]k\s*(?:na\s|\d)|\bhlav|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
+            descTest:
+      /(rozpred|\bn[aá]hradn[ée]?\s+diel|\bdielcov?\b|\bdiely\b|\bdielov\b|\bn[aá]razn[ií]?k|\bhlav[aáey])/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Diely motocyklov nie sú motocykel
@@ -207,13 +216,17 @@ export const RULES: RefineRule[] = [
  */
 export function refineCategoryByTitle(
   title: string,
-  categorySlug: string | null
+  categorySlug: string | null,
+  description?: string | null,
 ): string | null {
   if (!categorySlug) return categorySlug;
+  const desc = (description ?? "").trim();
   for (const rule of RULES) {
     if (!rule.onlyIfIn.includes(categorySlug)) continue;
-    const hit = typeof rule.test === "function" ? rule.test(title) : rule.test.test(title);
-    if (hit) return rule.category;
+    const hit =
+      typeof rule.test === "function" ? rule.test(title) : rule.test.test(title);
+    const descHit = !hit && desc !== "" && rule.descTest?.test(desc) === true;
+    if (hit || descHit) return rule.category;
   }
   return categorySlug;
 }
