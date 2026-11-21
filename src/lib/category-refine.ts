@@ -143,7 +143,7 @@ const RULES: RefineRule[] = [
   {
     category: "pneumatiky-a-disky",
     test:
-      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie|\balu\b|\bfelg|\br1[3-9]\b|5x1[0-2]\d|styling\s+\d|\d{3}\/\d{2}\/[a-z]?\d{1,2}|elektron|letn.{0,14}sada|zimn.{0,14}sada|sada\s+(zimn|letn|disk|kolies|gum))/i,
+      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie|\balu\b|\bfelg|\br1[3-9]\b|5x1[0-2]\d|styling\s+\d|\d{3}[\/]\d{2}[\/\s][a-z]?\s?\d{1,2}|\d{3}\s\d{2}\s[a-z]?\d{1,2}|pi?relli|\btaurus\b|barum|bridgestone|hankook|kormoran|goodyear|\bdunlop\b|\bfulda\b|nexen|nokian|\bopona\b|toyo\b|elektron|letn.{0,14}sada|zimn.{0,14}sada|sada\s+(zimn|letn|disk|kolies|gum))/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Prívesné vozíky nie sú osobné auto
@@ -168,7 +168,7 @@ const RULES: RefineRule[] = [
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filter|senzor|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
+      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|fil[táa]r|filter|senzor|bateria|oprava|pružen|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Diely motocyklov nie sú motocykel
