@@ -168,7 +168,7 @@ const RULES: RefineRule[] = [
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filter|senzor|kardan|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
+      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filter|senzor|kardan|aretač|matabro|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Diely motocyklov nie sú motocykel
