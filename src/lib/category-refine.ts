@@ -143,14 +143,32 @@ const RULES: RefineRule[] = [
   {
     category: "pneumatiky-a-disky",
     test:
-      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie|\balu\b|\bfelg|\br1[3-9]\b|5x1[0-2]\d|styling\s+\d)/i,
+      /(koles[áa]|koliesk|\bdisk[kyú]?\b|\bdiskov\b|alufel|plechov[ée]\s+disk|pneu\b|pneumatik|zimn[ée]\s+gum|letn[ée]\s+gum|\bgum[yý]\b|sobovacie|\balu\b|\bfelg|\br1[3-9]\b|5x1[0-2]\d|styling\s+\d|\d{3}\/\d{2}\/[a-z]?\d{1,2}|elektron|letn.{0,14}sada|zimn.{0,14}sada|sada\s+(zimn|letn|disk|kolies|gum))/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
+  },
+  // Prívesné vozíky nie sú osobné auto
+  {
+    category: "privesne-voziky",
+    test: /(prí?vesn[aá][ée]?ĥ?ť?\s?[oó]z[ií]k|\bvozík\b|\bvozik\b|karavan)/i,
+    onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "auto-moto"],
+  },
+  // Dodávky a dodávkové modely nie sú osobné auto
+  {
+    category: "dodavky",
+    test: /(movano|\bmaster\b|\bboxer\b|ducato|trafic|talento|transit|\bvito\b|viano|kangoo|berlingo|\bpartner\b|caddy|multivan|caravelle|transporter|\bt[3456]\b|dod[aá]vk|furgon|\bproace\b|\btraveller\b|\b[89]\s?miest|\b9miest)/i,
+    onlyIfIn: ["osobne-automobily", "uzitkove-vozidla"],
+  },
+  // Užitkové/nákladné vozidlá (kippery, valníky…) nie sú osobné auto
+  {
+    category: "uzitkove-vozidla",
+    test: /(kipper|kamion|\bvalník|sklápač|\bnákladn)/i,
+    onlyIfIn: ["osobne-automobily", "dodavky"],
   },
   // Diely a príslušenstvo nie sú osobné auto (motor, prevodovka, brzdy, dvere…)
   {
     category: "autodiely",
     test:
-      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|stierač|výfuk|karos[ée]ri|nárazov|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filter|senzor|kardan|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk)/i,
+      /(prevodovk|altern[áa]tor|rozvody|\bturbo\b|brzd[yáié]|stierač|stierac|v[yý]fuk|vyfuk|karos[ée]ri|nárazov|n[aá]razn|zrkadl|svetlomet|\bmotor\b|\bmotora\b|filter|senzor|kardan|podvozok|katalyz|zdvih|klakson|n[áa]hradn[ée]\s+diel|\bdiely|\bdielcov|dver[eí]|kapot|\btlmi|amortiz|závesn|clonitk|volant|autosklo|\bskl[oá]\b|bud[ií]k|sp[íi]na|přepínač|prepinac|koncovk|mrie[žz]k|obličk|sed[aá]č?c?k|\bprah\b|st[ĺl]pik|airbag|podblatn|hlava\s+valcov|n[áa]prav|chlad|xenon|\bokn|rozpredaj|\bdielov|v[ýy]stuh|\br[áa]di|\bpredok|motorcek)/i,
     onlyIfIn: ["osobne-automobily", "dodavky", "uzitkove-vozidla", "autoprislusenstvo"],
   },
   // Diely motocyklov nie sú motocykel
@@ -164,7 +182,7 @@ const RULES: RefineRule[] = [
   {
     category: "autoprislusenstvo",
     test:
-      /(koberec|koberce|kryty|kryt\s+|po?tah|kufor\s+auta|dekor|diagnostk|kamera\s+do\s+auta|palubn|termopast|glyc[ée]r|aditív)/i,
+      /(koberec|koberce|kryty|kryt\s+|po?tah|kufor\s+auta|dekor|diagnostk|kamera\s+do\s+auta|palubn|termopast|glyc[ée]r|aditív|roletk|št[ií]t|nab[ií]ja)/i,
     onlyIfIn: ["osobne-automobily"],
   },
   // Šperky a bižutéria (Pandora náramky nie sú oblečenie)
